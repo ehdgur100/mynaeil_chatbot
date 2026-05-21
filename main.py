@@ -1,38 +1,50 @@
 from fastapi import FastAPI, BackgroundTasks, Request
-from typing import Any, Dict, Optional
-from langchain_core.messages import HumanMessage
-from graph import app_graph
+from onboarding import ResumeTask
 import httpx
+import onboarding
+import resume
 
-app = FastAPI(title="나의내일 챗봇 API (Callback 지원)")
+app = FastAPI(title="나의내일 챗봇 API")
+
+_ERROR_BODY = {
+    "version": "2.0",
+    "template": {
+        "outputs": [{"simpleText": {"text": "자기소개서 생성 중 오류가 발생했어요. 다시 시도해 주세요 😥"}}]
+    },
+}
 
 
-async def send_callback_response(callback_url: str, initial_state: Dict[str, Any], config: Dict[str, Any]):
-    """백그라운드에서 LangGraph를 실행하고 결과를 카카오 콜백 URL로 전송합니다."""
-    print(f"[Callback] 처리 시작 → {callback_url}")
-    try:
-        final_state = await app_graph.ainvoke(initial_state, config=config)
-        ai_response = final_state["messages"][-1].content
-
-        callback_body = {
-            "version": "2.0",
-            "template": {
-                "outputs": [{"simpleText": {"text": ai_response}}]
-            }
-        }
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(callback_url, json=callback_body, timeout=10.0)
-            print(f"[Callback] 전송 완료 (상태: {resp.status_code})")
-
-    except Exception as e:
-        print(f"[Callback] 에러: {e}")
+async def _build_resume_response(task: ResumeTask) -> dict:
+    """ResumeTask를 받아 자소서를 생성(또는 조회)하고 2-bubble 응답 반환."""
+    if task.user_data is not None:
+        resume_text = await resume.generate_resume(task.user_data)
+        sections = resume.split_resume(resume_text)
         try:
-            error_body = {
-                "version": "2.0",
-                "template": {"outputs": [{"simpleText": {"text": "죄송합니다. 잠시 후 다시 시도해 주세요."}}]}
-            }
+            onboarding._save_resume(
+                task.user_id,
+                task.user_data.get("desired_job") or "",
+                resume_text,
+            )
+        except Exception as e:
+            print(f"[ResumeTask] DB 저장 실패: {e}")
+    else:
+        sections = task.sections or []
+
+    return resume.build_resume_callback_response(sections)
+
+
+async def send_resume_via_callback(task: ResumeTask, callback_url: str) -> None:
+    print(f"[ResumeTask] 콜백 처리 시작 → {callback_url}")
+    try:
+        response_body = await _build_resume_response(task)
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(callback_url, json=response_body, timeout=10.0)
+            print(f"[ResumeTask] 콜백 전송 완료 (상태: {resp.status_code})")
+    except Exception as e:
+        print(f"[ResumeTask] 실패: {e}")
+        try:
             async with httpx.AsyncClient() as client:
-                await client.post(callback_url, json=error_body, timeout=5.0)
+                await client.post(callback_url, json=_ERROR_BODY, timeout=5.0)
         except:
             pass
 
@@ -40,51 +52,31 @@ async def send_callback_response(callback_url: str, initial_state: Dict[str, Any
 @app.post("/api/chat")
 async def chat_endpoint(request: Request, background_tasks: BackgroundTasks):
     raw = await request.json()
-
     user_request = raw.get("userRequest", {})
     user_message = user_request.get("utterance", "")
     user_id = user_request.get("user", {}).get("id", "unknown_user")
-
-    # callbackUrl 탐색 (userRequest 안 또는 root level)
     callback_url = user_request.get("callbackUrl") or raw.get("callbackUrl")
 
-    action_data = raw.get("action", {})
-    client_extra = action_data.get("clientExtra", {})
-    explicit_intent = client_extra.get("intent", None)
+    print(f"[알림] '{user_message}' | user: {user_id[:16]}...")
 
-    print(f"[알림] '{user_message}' | 콜백: {bool(callback_url)} | user: {user_id[:16]}...")
+    result = await onboarding.handle_onboarding(user_id, user_message)
 
-    initial_state = {
-        "user_id": user_id,
-        "messages": [HumanMessage(content=user_message)],
-        "intent": explicit_intent
-    }
-    config = {"configurable": {"thread_id": user_id}}
-
-    # ── 경우 1: callbackUrl이 있음 (카카오 콜백 정상 작동 시) ──
-    # 카카오가 첫 요청부터 callbackUrl을 보내주면 비동기로 처리합니다.
-    if callback_url:
-        print(f"[Callback] 비동기 처리 시작 (URL: {callback_url[:40]}...)")
-        background_tasks.add_task(send_callback_response, callback_url, initial_state, config)
-        return {
-            "version": "2.0",
-            "useCallback": True,
-            "data": {
-                "text": "잠시만 기다려 주세요. 답변을 준비 중입니다..."
+    if isinstance(result, ResumeTask):
+        if callback_url:
+            background_tasks.add_task(send_resume_via_callback, result, callback_url)
+            return {
+                "version": "2.0",
+                "useCallback": True,
+                "data": {"text": result.immediate_message},
             }
-        }
+        # 콜백 URL 없음 (테스트 환경): 동기 처리
+        try:
+            return await _build_resume_response(result)
+        except Exception as e:
+            print(f"[ResumeTask] 동기 처리 실패: {e}")
+            return _ERROR_BODY
 
-    # ── 경우 2: callbackUrl이 없음 (설정 미적용 또는 봇 테스트 창) ──
-    # 카카오가 callbackUrl을 보내지 않았으므로 무조건 5초 안에 
-    # 일반 응답(동기 방식)으로 답변을 줘야 합니다.
-    print(f"[알림] 콜백 URL 없음 → 동기 처리 시작")
-    final_state = await app_graph.ainvoke(initial_state, config=config)
-    ai_response = final_state["messages"][-1].content
-    
-    return {
-        "version": "2.0",
-        "template": {"outputs": [{"simpleText": {"text": ai_response}}]}
-    }
+    return result
 
 
 @app.get("/")
