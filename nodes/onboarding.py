@@ -266,6 +266,11 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
 
         user = _get_user(user_id)
 
+        # 추천 공고 직후의 입력 이벤트 분기 처리 (step 6 진입 유도)
+        if user is not None and user.get("resume_status") == "jobs_recommended":
+            _update_resume_status(user_id, "none")
+            return _build_response(STEPS[6]["question"], STEPS[6]["quick_replies"])
+
         # resume_status 기반 상태 처리
         if user is not None and user.get("resume_status", "none") != "none":
             resume_status = user["resume_status"]
@@ -374,6 +379,58 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                     [],
                 )
             _retry_counts.pop(retry_key, None)
+
+        # 6번째 질문(strengths, index 5) 답변이 완료되었을 때 공고 추천 분기
+        if step == 5:
+            _save_answer(user_id, field, stripped, 6)
+            _update_resume_status(user_id, "jobs_recommended")
+            
+            profile = _get_user(user_id) or {}
+            search_keyword = profile.get("desired_job") or "시니어"
+            search_location = profile.get("location") or "서울"
+            
+            from database.operations import get_jobs_from_db
+            from nodes.job import content_based_filtering
+            
+            try:
+                db_jobs = get_jobs_from_db(search_keyword, search_location, limit=10)
+                seen_titles = set()
+                all_jobs = []
+                for job in db_jobs:
+                    t = job.get("title")
+                    if t not in seen_titles:
+                        seen_titles.add(t)
+                        if "job_category" not in job:
+                            job["job_category"] = search_keyword
+                        all_jobs.append(job)
+                recommended = content_based_filtering(profile, all_jobs, top_n=3)
+            except Exception as e:
+                print(f"[Onboarding Job Recommendation Error] {e}")
+                recommended = []
+                
+            if recommended:
+                job_list_str = ""
+                for i, job in enumerate(recommended):
+                    job_list_str += (
+                        f"📌 {i+1}. {job.get('title')}\n"
+                        f"  - 업체명: {job.get('company')}\n"
+                        f"  - 지역: {job.get('location')}\n"
+                        f"  - 급여: {job.get('salary', '협의')}\n"
+                        f"  - 공고링크: {job.get('url')}\n\n"
+                    )
+                msg = (
+                    f"🔍 입력해주신 정보를 바탕으로 찾은 맞춤 일자리예요! 💼\n\n"
+                    f"{job_list_str.strip()}\n\n"
+                    f"이 일자리에 바로 지원하실 수 있도록 맞춤형 자기소개서를 완성해 드릴까요? 😊\n"
+                    f"아래 버튼을 누르시면 남은 3가지 질문을 이어갈게요!"
+                )
+            else:
+                msg = (
+                    f"입력해주신 정보를 기반으로 주변 일자리를 열심히 조회해보았으나, 현재 딱 맞는 공고가 조회되지 않네요 😥\n\n"
+                    f"그래도 다른 직무나 공고에 언제든 지원할 수 있도록 계속해서 자기소개서를 작성해 드릴까요? 😊"
+                )
+                
+            return _build_response(msg, ["이어서 자소서 작성하기", "처음부터"])
 
         _save_answer(user_id, field, stripped, step + 1)
 
