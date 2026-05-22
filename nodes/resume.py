@@ -175,6 +175,11 @@ def build_resume_callback_response(sections: list[str]) -> dict:
             "outputs": [
                 {"simpleText": {"text": bubble1}},
                 {"simpleText": {"text": bubble2}},
+            ],
+            "quickReplies": [
+                {"action": "message", "label": "🔍 자소서 검증하기", "messageText": "자소서 검증해줘"},
+                {"action": "message", "label": "✍️ 새로 작성하기", "messageText": "처음부터"},
+                {"action": "message", "label": "💼 일자리 검색하기", "messageText": "일자리 추천해줘"}
             ]
         },
     }
