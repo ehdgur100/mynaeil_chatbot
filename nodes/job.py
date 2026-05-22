@@ -59,20 +59,18 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
     search_keyword = extracted.get("keyword") or desired_job or "시니어"
     search_location = extracted.get("location") or location or "서울"
 
-    # 3. 데이터 원천 수집 (API 클라이언트 및 크롤러 뼈대 구동)
-    # A. API 연동
+    # 3. 데이터 원천 수집 (실시간 크롤링 대신 DB 사전 수집본 조회 및 API 연동)
+    # A. API 연동 (보조 실시간 데이터 확보)
     worknet_client = WorknetAPIClient(auth_key=getattr(config, "WORKNET_API_KEY", ""))
     api_jobs = await worknet_client.get_jobs_by_keyword(search_keyword, location=search_location)
 
-    # B. 크롤러 연동
-    crawler = SeniorJobCrawler()
-    crawled_jobs = crawler.crawl_senior_jobs(limit=5)
+    # B. 미리 크롤링되어 DB(jobs3 테이블)에 적재된 일자리 데이터 조회
+    db_jobs = db_ops.get_jobs_from_db(search_keyword, search_location, limit=5)
     
-    # 두 소스의 일자리 리스트 병합
+    # 두 소스의 일자리 리스트 병합 (실시간 API + DB 사전 크롤링 데이터)
     all_jobs = []
-    # 중복 제거를 고려한 리스트 채우기
     seen_titles = set()
-    for job in api_jobs + crawled_jobs:
+    for job in api_jobs + db_jobs:
         title = job.get("title")
         if title not in seen_titles:
             seen_titles.add(title)
