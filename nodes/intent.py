@@ -29,8 +29,8 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
         profile = get_user_profile(user_id)
         if profile is not None:
             step = profile.get("step", 0)
-            # 온보딩 중간 단계인 경우 무조건 자소서 온보딩으로 강제 라우팅
-            if 0 <= step < 7 and not any(k in input_clean for k in ["검증", "평가", "첨삭", "피드백", "판별"]):
+            # 온보딩 중간 단계인 경우(0~8) 무조건 자소서 온보딩으로 강제 라우팅
+            if 0 <= step < 9 and not any(k in input_clean for k in ["검증", "평가", "첨삭", "피드백", "판별"]):
                 print(f"[Intent] 온보딩 진행 유저 확인 (현재 step: {step}) → 자소서 루프 강제 라우팅")
                 return {"intent": "resume_gen"}
     except Exception as e:
