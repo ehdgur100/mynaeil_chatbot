@@ -1,12 +1,51 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from state import AgentState
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from nodes.base import llm_fast
 import database.operations as db_ops
-from services.worknet_api import WorknetAPIClient
-from services.crawler import SeniorJobCrawler
-from services.recommender import content_based_filtering
 import config
+
+def content_based_filtering(user_profile: Dict[str, Any], jobs: List[Dict[str, Any]], top_n: int = 3) -> List[Dict[str, Any]]:
+    """
+    사용자의 희망 직무(desired_job), 보유 경력(career), 강점(strengths) 키워드와 
+    공고(jobs)의 제목 및 본문 텍스트 간 유사도를 계산해 매칭하는 콘텐츠 기반 필터링 알고리즘.
+    """
+    if not user_profile or not jobs:
+        return jobs[:top_n]
+
+    # 비교 타겟 문자열 구성
+    user_words = []
+    for field in ["desired_job", "career", "skills", "strengths"]:
+        val = user_profile.get(field)
+        if val:
+            user_words.extend([w.strip() for w in val.replace(",", " ").split() if w.strip()])
+
+    scored_jobs = []
+    for job in jobs:
+        # 공고 텍스트 병합 (제목 + 내용 + 카테고리)
+        job_text = f"{job.get('title', '')} {job.get('content', '')} {job.get('job_category', '')}"
+        
+        # 키워드 매칭 스코어 계산
+        score = 0.0
+        for word in user_words:
+            if word in job_text:
+                # 희망 직무 매칭 시 가중치 부여
+                if word == user_profile.get("desired_job"):
+                    score += 5.0
+                else:
+                    score += 1.0
+                    
+        # 근무지 매칭 가중치 (구/시 단위 비교)
+        user_loc = user_profile.get("location", "")
+        job_loc = job.get("location", "")
+        if user_loc and job_loc and (user_loc in job_loc or job_loc in user_loc):
+            score += 3.0
+
+        scored_jobs.append((job, score))
+
+    # 점수 내림차순 정렬 후 반환
+    scored_jobs.sort(key=lambda x: x[1], reverse=True)
+    return [item[0] for item in scored_jobs[:top_n]]
 
 async def job_search(state: AgentState) -> Dict[str, Any]:
     """
@@ -59,18 +98,13 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
     search_keyword = extracted.get("keyword") or desired_job or "시니어"
     search_location = extracted.get("location") or location or "서울"
 
-    # 3. 데이터 원천 수집 (실시간 크롤링 대신 DB 사전 수집본 조회 및 API 연동)
-    # A. API 연동 (보조 실시간 데이터 확보)
-    worknet_client = WorknetAPIClient(auth_key=getattr(config, "WORKNET_API_KEY", ""))
-    api_jobs = await worknet_client.get_jobs_by_keyword(search_keyword, location=search_location)
-
-    # B. 미리 크롤링되어 DB(jobs3 테이블)에 적재된 일자리 데이터 조회
-    db_jobs = db_ops.get_jobs_from_db(search_keyword, search_location, limit=5)
+    # 3. 데이터 원천 수집 (오직 DB 사전 수집본인 jobs3 테이블만 고속 조회)
+    db_jobs = db_ops.get_jobs_from_db(search_keyword, search_location, limit=10)
     
-    # 두 소스의 일자리 리스트 병합 (실시간 API + DB 사전 크롤링 데이터)
+    # 중복 제거 및 포맷팅 처리
     all_jobs = []
     seen_titles = set()
-    for job in api_jobs + db_jobs:
+    for job in db_jobs:
         title = job.get("title")
         if title not in seen_titles:
             seen_titles.add(title)
@@ -110,7 +144,7 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
         )
 
     # 6. 빠른 답장 버튼(Quick Replies) 생성
-    quick_replies = ["자소서 작성", "정부지원금 알아보기", "직업교육 추천"]
+    quick_replies = ["자소서 작성", "일자리 검색", "자소서 검증"]
     kakao_resp = {
         "version": "2.0",
         "template": {
