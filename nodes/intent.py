@@ -22,12 +22,13 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
 
     # 2. 온보딩 진행 체크 (Smart Bypass)
     # RAG/DB 엔지니어가 구현한 operations 모듈을 통해 온보딩이 안 끝났는지 조회합니다.
+    # 단, 유저가 명시적으로 자소서 '검증/피드백'을 원하는 경우에는 온보딩 강제 루프를 적용하지 않습니다.
     try:
         profile = get_user_profile(user_id)
         if profile is not None:
             step = profile.get("step", 0)
             # 온보딩 중간 단계 (0~6) 인 경우 무조건 자소서 온보딩으로 다이렉트 바인딩
-            if 0 <= step < 7:
+            if 0 <= step < 7 and not any(k in input_clean for k in ["검증", "평가", "첨삭", "피드백", "판별"]):
                 # 단, 유저가 완전히 "처음부터"를 입력했을 때는 온보딩을 리셋해야 하므로 resume_gen으로 분기시킴
                 print(f"[Intent] 온보딩 진행 유저 확인 (현재 step: {step}) → 자소서 루프 강제 라우팅")
                 return {"intent": "resume_gen"}
