@@ -37,7 +37,8 @@ class SeniorJobCrawler:
         - salary: 급여 조건 (예: 월급 200만원)
         - deadline: 모집 마감일 (YYYY-MM-DD)
         """
-        print(f"🚀 {self.target_url} 로부터 시니어 일자리 크롤링 시작...")
+        # print(f"🚀 {self.target_url} 로부터 시니어 일자리 크롤링 시작...")
+        print(f"[Mock Crawler] {self.target_url} 로드 완료 (실제 크롤링 생략, 목업 데이터 사용)")
         
         # 뼈대 목업 데이터 반환 (크롤러 오프라인/개발 중 대체동작 지원용)
         mock_crawled_data = [

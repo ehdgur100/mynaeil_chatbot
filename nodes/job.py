@@ -38,8 +38,16 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
         ])
         import json
         import re
+        
+        # response.content가 리스트 구조로 들어오는 경우를 위한 방어 코드 추가
+        content_val = response.content
+        if isinstance(content_val, list):
+            content_str = "".join([c.get("text", "") if isinstance(c, dict) else str(c) for c in content_val])
+        else:
+            content_str = str(content_val)
+
         # JSON 문자열만 정규식으로 정제
-        cleaned = re.search(r'\{.*\}', response.content.strip(), re.DOTALL)
+        cleaned = re.search(r'\{.*\}', content_str.strip(), re.DOTALL)
         if cleaned:
             extracted = json.loads(cleaned.group(0))
         else:
