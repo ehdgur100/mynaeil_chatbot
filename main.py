@@ -140,6 +140,34 @@ async def chat_endpoint(request: Request, background_tasks: BackgroundTasks):
         print(f"[Sync Process Error] 동기 그래프 처리 실패: {e}")
         return _ERROR_BODY
 
+@app.post("/api/recommend")
+async def recommend_endpoint(request: Request):
+    try:
+        raw = await request.json()
+        user_request = raw.get("userRequest", {})
+        user_id = user_request.get("user", {}).get("id", "unknown_user")
+        
+        print(f"[추천 API 호출] user_id: {user_id}")
+        
+        # recommend.py의 함수들을 호출하여 추천 공고를 가져오고 캐러셀로 변환합니다.
+        from data_pipeline import recommend
+        
+        # 유저 ID를 기반으로 추천 공고 Top 5 가져오기
+        jobs = await recommend.recommend_jobs_for_user(user_id, limit=5)
+        
+        # 카카오톡 캐러셀 JSON 포맷으로 변환 후 응답
+        return recommend.build_kakao_carousel_response(jobs)
+        
+    except Exception as e:
+        print(f"[추천 API 에러] {e}")
+        return {
+            "version": "2.0",
+            "template": {
+                "outputs": [{"simpleText": {"text": "추천 공고를 불러오는 중 오류가 발생했습니다. 다시 시도해 주세요."}}]
+            }
+        }
+
+
 @app.get("/")
 def health_check():
     """챗봇 서버 상태 모니터링용 엔드포인트"""
