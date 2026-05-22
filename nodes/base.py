@@ -2,11 +2,9 @@ from enum import Enum
 import config
 
 class IntentEnum(str, Enum):
-    policy_search = "policy_search"
     resume_gen = "resume_gen"      # 자소서 생성 및 온보딩
     resume_verify = "resume_verify"  # [파트 2] 자소서 RAG 검증
     job_search = "job_search"      # 일자리 추천
-    edu_recommend = "edu_recommend"# 교육과정 추천
     apply_guide = "apply_guide"    # 상세 지원 가이드
     basic_chat = "basic_chat"
 
@@ -39,7 +37,7 @@ if config.ACTIVE_LLM == "gemini":
     from langchain_google_genai import ChatGoogleGenerativeAI
     # 3.1 flash는 가성비와 스마트함을 겸비한 고급 모델로 사용 가능
     llm_smart = ChatGoogleGenerativeAI(
-        model="gemini-3.1-flash", 
+        model="gemini-3.1-flash-lite", 
         google_api_key=gemini_api_key
     )
 else:

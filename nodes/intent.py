@@ -38,14 +38,12 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     input_clean = user_input.strip().lower()
     if any(k in input_clean for k in ["안녕", "누구", "반가워", "하이", "이름", "뭐해"]):
         return {"intent": "basic_chat"}
-    if any(k in input_clean for k in ["지원", "정책", "급여", "돈", "수당", "실업", "제도"]):
-        return {"intent": "policy_search"}
+
     if any(k in input_clean for k in ["이력서", "자기소개서", "자소서", "경력", "면접", "처음부터", "자소서 보여줘", "저장된 자소서"]):
         return {"intent": "resume_gen"}
     if any(k in input_clean for k in ["일자리", "알바", "취업", "구인", "공고", "일할", "채용", "추천"]):
         return {"intent": "job_search"}
-    if any(k in input_clean for k in ["교육", "내일배움", "자격증", "학원", "배우", "훈련"]):
-        return {"intent": "edu_recommend"}
+
     if any(k in input_clean for k in ["검증", "평가", "첨삭", "피드백", "판별"]):
         return {"intent": "resume_verify"}
     if any(k in input_clean for k in ["가이드", "방법", "준비", "팁", "어떻게"]):
@@ -55,7 +53,7 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     system_prompt = (
         "당신은 중장년층 구직자 지원 시스템의 의도 분석가입니다.\n"
         "아래 사용자 발화를 분류하여 다음 카테고리 단어 중 '오직 한 단어'로만 답변하십시오:\n"
-        "(policy_search, resume_gen, resume_verify, job_search, edu_recommend, apply_guide, basic_chat)\n"
+        "(resume_gen, resume_verify, job_search, apply_guide, basic_chat)\n"
         "다른 서술어나 기호, 백틱(```) 등은 포함하지 마십시오."
     )
     
