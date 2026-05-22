@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
-from database import supabase
-import resume
+from database.connection import supabase
+from . import resume
 
 
 @dataclass
@@ -165,20 +165,20 @@ def _build_response(text: str, quick_replies: list) -> dict:
 def _get_user(user_id: str) -> Optional[dict]:
     if supabase is None:
         raise RuntimeError("Supabase 미연결")
-    result = supabase.table("users2").select("*").eq("user_id", user_id).execute()
+    result = supabase.table("users").select("*").eq("user_id", user_id).execute()
     return result.data[0] if result.data else None
 
 
 def _create_user(user_id: str) -> None:
     if supabase is None:
         raise RuntimeError("Supabase 미연결")
-    supabase.table("users2").insert({"user_id": user_id, "step": 0}).execute()
+    supabase.table("users").insert({"user_id": user_id, "step": 0}).execute()
 
 
 def _save_answer(user_id: str, field: str, answer: str, next_step: int) -> None:
     if supabase is None:
         raise RuntimeError("Supabase 미연결")
-    supabase.table("users2").update({field: answer, "step": next_step}).eq(
+    supabase.table("users").update({field: answer, "step": next_step}).eq(
         "user_id", user_id
     ).execute()
 
@@ -186,7 +186,7 @@ def _save_answer(user_id: str, field: str, answer: str, next_step: int) -> None:
 def _reset_user(user_id: str) -> None:
     if supabase is None:
         raise RuntimeError("Supabase 미연결")
-    supabase.table("users2").upsert(
+    supabase.table("users").upsert(
         {
             "user_id": user_id,
             "step": 0,
@@ -221,7 +221,7 @@ def _save_resume(user_id: str, desired_job: str, content: str) -> None:
 def _update_resume_status(user_id: str, status: str) -> None:
     if supabase is None:
         raise RuntimeError("Supabase 미연결")
-    supabase.table("users2").update({"resume_status": status}).eq(
+    supabase.table("users").update({"resume_status": status}).eq(
         "user_id", user_id
     ).execute()
 
@@ -229,7 +229,7 @@ def _update_resume_status(user_id: str, status: str) -> None:
 def _update_revision_count(user_id: str, new_count: int) -> None:
     if supabase is None:
         raise RuntimeError("Supabase 미연결")
-    supabase.table("users2").update({"revision_count": new_count}).eq(
+    supabase.table("users").update({"revision_count": new_count}).eq(
         "user_id", user_id
     ).execute()
 
@@ -391,3 +391,85 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
     except Exception as e:
         print(f"[Onboarding] 오류: {e}")
         return _DB_ERROR
+
+
+async def resume_gen(state: dict) -> dict:
+    user_id = state["user_id"]
+    user_message = state["messages"][-1].content
+
+    result = await handle_onboarding(user_id, user_message)
+
+    if isinstance(result, ResumeTask):
+        if result.user_data is not None:
+            try:
+                resume_text = await resume.generate_resume(result.user_data)
+                sections = resume.split_resume(resume_text)
+                _save_resume(result.user_id, result.user_data.get("desired_job") or "", resume_text)
+                _update_resume_status(result.user_id, "generated")
+                kakao_response = resume.build_resume_callback_response(sections)
+                kakao_response["template"]["outputs"].append({"simpleText": {"text": "첨삭해드릴까요? 😊"}})
+                kakao_response["template"]["quickReplies"] = [
+                    {"action": "message", "label": "네, 첨삭해주세요", "messageText": "네, 첨삭해주세요"},
+                    {"action": "message", "label": "괜찮아요", "messageText": "괜찮아요"},
+                ]
+            except Exception as e:
+                print(f"[resume_gen] 자소서 생성 오류: {e}")
+                kakao_response = _DB_ERROR
+        else:
+            sections = result.sections or []
+            kakao_response = resume.build_resume_callback_response(sections)
+
+    elif isinstance(result, ResumeReviewTask):
+        try:
+            reviewed_text = await resume.rag_review(result.user_id, result.resume_text)
+            sections = resume.split_resume(reviewed_text)
+            _save_resume(result.user_id, result.desired_job, reviewed_text)
+            completion_msg = (
+                "첨삭이 완료됐어요 😊\n"
+                "수정하고 싶은 부분이 있으면 말씀해 주세요.\n"
+                "만족하시면 아래 버튼을 눌러주세요."
+            )
+            kakao_response = resume.build_resume_callback_response(sections)
+            kakao_response["template"]["outputs"].append({"simpleText": {"text": completion_msg}})
+            kakao_response["template"]["quickReplies"] = [
+                {"action": "message", "label": "완료", "messageText": "완료"},
+            ]
+        except Exception as e:
+            print(f"[resume_gen] 첨삭 오류: {e}")
+            kakao_response = _DB_ERROR
+
+    elif isinstance(result, ResumeRevisionTask):
+        try:
+            revised_text = await resume.revise_resume(
+                result.existing_content, result.user_request, result.user_data or {}
+            )
+            sections = resume.split_resume(revised_text)
+            new_count = result.revision_count + 1
+            _save_resume(result.user_id, result.desired_job, revised_text)
+            _update_revision_count(result.user_id, new_count)
+            remaining = 5 - new_count
+            if remaining > 0:
+                completion_msg = (
+                    f"수정이 완료됐어요 😊\n"
+                    f"남은 수정 횟수: {remaining}번\n"
+                    f"더 수정하시거나 만족하시면 완료 버튼을 눌러주세요."
+                )
+            else:
+                completion_msg = (
+                    "수정이 완료됐어요 😊\n"
+                    "수정 횟수를 모두 사용했어요.\n"
+                    "만족하시면 완료 버튼을 눌러주세요."
+                )
+            kakao_response = resume.build_resume_callback_response(sections)
+            kakao_response["template"]["outputs"].append({"simpleText": {"text": completion_msg}})
+            kakao_response["template"]["quickReplies"] = [
+                {"action": "message", "label": "완료", "messageText": "완료"},
+            ]
+        except Exception as e:
+            print(f"[resume_gen] 수정 오류: {e}")
+            kakao_response = _DB_ERROR
+
+    else:
+        kakao_response = result
+
+    return {"kakao_response": kakao_response}

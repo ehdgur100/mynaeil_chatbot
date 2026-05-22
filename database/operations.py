@@ -5,20 +5,20 @@ def get_user_profile(user_id: str) -> Optional[dict]:
     """사용자의 온보딩 정보를 조회합니다."""
     if supabase is None:
         raise RuntimeError("Supabase가 연결되지 않았습니다.")
-    result = supabase.table("users2").select("*").eq("user_id", user_id).execute()
+    result = supabase.table("users").select("*").eq("user_id", user_id).execute()
     return result.data[0] if result.data else None
 
 def create_user_profile(user_id: str) -> None:
     """새로운 사용자의 온보딩 프로필을 생성합니다."""
     if supabase is None:
         raise RuntimeError("Supabase가 연결되지 않았습니다.")
-    supabase.table("users2").insert({"user_id": user_id, "step": 0}).execute()
+    supabase.table("users").insert({"user_id": user_id, "step": 0}).execute()
 
 def save_onboarding_answer(user_id: str, field: str, answer: str, next_step: int) -> None:
     """사용자의 온보딩 답변과 다음 단계를 저장합니다."""
     if supabase is None:
         raise RuntimeError("Supabase가 연결되지 않았습니다.")
-    supabase.table("users2").update(
+    supabase.table("users").update(
         {field: answer, "step": next_step}
     ).eq("user_id", user_id).execute()
 
@@ -26,7 +26,7 @@ def reset_user_profile(user_id: str) -> None:
     """사용자의 온보딩 상태를 처음부터로 초기화합니다."""
     if supabase is None:
         raise RuntimeError("Supabase가 연결되지 않았습니다.")
-    supabase.table("users2").upsert({
+    supabase.table("users").upsert({
         "user_id": user_id, "step": 0,
         "career": None, "skills": None, "desired_job": None,
         "location": None, "work_condition": None,
