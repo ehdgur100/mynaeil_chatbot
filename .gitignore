@@ -24,6 +24,8 @@ MANIFEST
 
 # --- Environments ---
 .env
+*.env
+.env.*
 .venv
 env/
 venv/
@@ -65,13 +67,11 @@ coverage.xml
 # --- Jupyter Notebook ---
 .ipynb_checkpoints
 
-# --- Our Project Specific ---
+# --- Custom Scratch / Local Tests ---
 test_*.py
 temp_*.py
 check_ngrok.py
 check_*.py
-insert_sample_data.py
-test_rag.py
-test_graph.py
-test_embedding.py
-test_openai.py
+scratch_*.py
+scratch/
+test_graph_run.py
