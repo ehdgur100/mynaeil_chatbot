@@ -1,7 +1,7 @@
 from typing import Dict, Any
 from state import AgentState
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from nodes.base import llm_fast
+from nodes.base import llm_fast, get_content
 import database.operations as db_ops
 from services.hrd_api import HRDNetAPIClient
 import config
@@ -37,7 +37,7 @@ async def edu_recommend(state: AgentState) -> Dict[str, Any]:
             SystemMessage(content=extract_prompt),
             HumanMessage(content=user_context)
         ])
-        subject = response.content.strip()
+        subject = get_content(response)
     except Exception as e:
         print(f"[Edu Keyword Extract Error] {e}")
         subject = desired_job or "재취업 일반"

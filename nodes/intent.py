@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any
 from state import AgentState
-from nodes.base import IntentEnum, llm_fast
+from nodes.base import IntentEnum, llm_fast, get_content
 from database.operations import get_user_profile
 
 async def analyze_intent(state: AgentState) -> Dict[str, Any]:
@@ -61,7 +61,7 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     
     try:
         response = await llm_fast.ainvoke(f"{system_prompt}\n\n사용자 발화: {user_input}")
-        res_text = response.content.strip()
+        res_text = get_content(response)
         
         # 불필요한 특수 기호/줄바꿈/공백 정규식으로 안전하게 청소
         cleaned_intent = re.sub(r'[^a-zA-Z_]', '', res_text)

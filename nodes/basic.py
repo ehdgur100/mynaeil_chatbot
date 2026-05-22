@@ -1,7 +1,7 @@
 from typing import Dict, Any
 from state import AgentState
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from nodes.base import llm_fast
+from nodes.base import llm_fast, get_content
 
 async def basic_chat(state: AgentState) -> Dict[str, Any]:
     """
@@ -50,7 +50,7 @@ async def basic_chat(state: AgentState) -> Dict[str, Any]:
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_input)
         ])
-        ai_response = response.content
+        ai_response = get_content(response)
     except Exception as e:
         print(f"[Basic Chat Error] {e}")
         ai_response = "무슨 말씀인지 잘 이해하지 못했어요. 정책 조회, 자소서 쓰기, 일자리 찾기, 교육과정 안내 중 어떤 걸 도와드릴까요?"

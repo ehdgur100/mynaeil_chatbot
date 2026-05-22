@@ -1,7 +1,7 @@
 from typing import Dict, Any
 from state import AgentState
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from nodes.base import llm_smart
+from nodes.base import llm_smart, get_content
 import database.operations as db_ops
 from database.vector_search import search_resume_tips
 
@@ -97,7 +97,7 @@ async def resume_verify(state: AgentState) -> Dict[str, Any]:
             SystemMessage(content=_VERIFY_SYSTEM_PROMPT),
             HumanMessage(content=user_prompt)
         ])
-        ai_response = response.content
+        ai_response = get_content(response)
     except Exception as e:
         print(f"[Verify LLM Error] 자소서 검증 LLM 호출 실패: {e}")
         ai_response = "죄송합니다. 자기소개서를 검증하는 프로세스 중 예상치 못한 에러가 발생했습니다."

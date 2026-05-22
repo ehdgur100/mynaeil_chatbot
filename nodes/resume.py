@@ -2,7 +2,7 @@ import re
 from typing import Dict, Any, Optional
 from state import AgentState
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from nodes.base import llm_smart
+from nodes.base import llm_smart, get_content
 import database.operations as db_ops
 
 _SECTION_LABELS = ["성장과정", "지원동기", "직무 경험 및 강점", "입사 후 포부"]
@@ -193,7 +193,7 @@ async def generate_resume_text(user_data: dict) -> str:
         SystemMessage(content=_SYSTEM_PROMPT),
         HumanMessage(content=user_prompt),
     ])
-    return response.content
+    return get_content(response)
 
 async def resume_gen(state: AgentState) -> Dict[str, Any]:
     """

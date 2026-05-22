@@ -49,3 +49,18 @@ else:
         api_key=openai_api_key
     )
 
+def get_content(response) -> str:
+    """
+    AIMessage 등 모델 응답 객체로부터 텍스트 content를 안전하게 문자열로 변환하여 반환합니다.
+    (간혹 리스트 형식으로 값이 들어와 발생하는 AttributeError: 'list' object has no attribute 'strip' 등의 버그를 원천 방지)
+    """
+    if response is None:
+        return ""
+    # response 객체에 content 속성이 있는지 검사 후 값 획득
+    content = getattr(response, "content", response)
+    
+    if isinstance(content, list):
+        # langchain list content 구조를 텍스트로 병합
+        return "".join([c.get("text", "") if isinstance(c, dict) else str(c) for c in content]).strip()
+    return str(content).strip()
+

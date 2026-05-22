@@ -1,7 +1,7 @@
 from typing import Dict, Any
 from state import AgentState
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from nodes.base import llm_smart
+from nodes.base import llm_smart, get_content
 from database.vector_search import search_documents
 
 async def policy_search(state: AgentState) -> Dict[str, Any]:
@@ -43,7 +43,7 @@ async def policy_search(state: AgentState) -> Dict[str, Any]:
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_input)
         ])
-        ai_response = response.content
+        ai_response = get_content(response)
     except Exception as e:
         print(f"[Policy Error] RAG 정책 검색 중 에러 발생: {e}")
         ai_response = "죄송합니다. 정책 정보를 검색하는 도중 오류가 발생했습니다. 잠시 후 다시 검색해 주세요. 😥"

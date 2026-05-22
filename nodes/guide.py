@@ -1,7 +1,7 @@
 from typing import Dict, Any
 from state import AgentState
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from nodes.base import llm_smart
+from nodes.base import llm_smart, get_content
 import database.operations as db_ops
 
 _GUIDE_SYSTEM_PROMPT = """당신은 5060 신중년 구직자의 성공적인 취업을 돕는 1:1 취업 밀착 코치입니다.
@@ -62,7 +62,7 @@ async def apply_guide(state: AgentState) -> Dict[str, Any]:
             SystemMessage(content=_GUIDE_SYSTEM_PROMPT),
             HumanMessage(content=user_prompt)
         ])
-        ai_response = response.content
+        ai_response = get_content(response)
     except Exception as e:
         print(f"[Guide Error] 가이드 생성 실패: {e}")
         ai_response = (
