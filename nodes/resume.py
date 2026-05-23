@@ -204,3 +204,53 @@ def build_resume_callback_response(sections: list[str]) -> dict:
             ]
         },
     }
+
+
+async def generate_resume_with_tips(user_data: dict, tips_context: str) -> str:
+    """유튜브 인사담당자들의 RAG 조언을 반영하여 최종 완성된 자기소개서를 생성합니다."""
+    llm = ChatOpenAI(model="gpt-4o-mini", api_key=config.OPENAI_API_KEY)
+    
+    system_prompt = """당신은 5060세대 신중년 구직자의 자기소개서 작성을 돕는 전문 취업 컨설턴트입니다.
+제공된 [인사담당자들의 조언]을 분석에만 참고하여, 지원자의 정보를 가장 돋보이게 다듬은 완성본 자기소개서를 직접 작성해 주세요.
+
+작성 및 첨삭 원칙:
+1. 제공된 [인사담당자들의 조언](예: 구체적인 수치적 성과 강조, STAR 기법 활용 등)이 자소서 본문에 자연스럽게 녹아들어 첨삭이 완성되도록 작성하십시오.
+2. 최종 자소서 텍스트에는 '[이형 조언 반영]'과 같은 분석용 메타 태그나 유튜브 출처 텍스트를 본문에 절대 포함하지 마십시오. 오직 즉시 제출 가능한 순수 자기소개서 텍스트만 작성해야 합니다.
+3. 각 항목은 반드시 500자 이내의 친절하고 따뜻한 해요체 문장으로 작성해 주세요.
+
+출력 형식:
+반드시 아래 형식으로만 출력하세요. 다른 인사말이나 잡설은 적지 마십시오.
+
+[성장과정]
+내용
+
+[지원동기]
+내용
+
+[직무 경험 및 강점]
+내용
+
+[입사 후 포부]
+내용"""
+
+    user_prompt = f"""아래 지원자 정보와 조언을 바탕으로 완성도 높은 자소서를 작성해 주세요.
+
+[지원자 정보]
+- 핵심 경력: {user_data.get("career") or ""}
+- 보유 자격증 및 기술: {user_data.get("skills") or ""}
+- 희망 직무: {user_data.get("desired_job") or ""}
+- 근무 희망 지역: {user_data.get("location") or ""}
+- 근무 조건: {user_data.get("work_condition") or ""}
+- 핵심 강점: {user_data.get("strengths") or ""}
+- 최우선 목표: {user_data.get("goal") or ""}
+- 뿌듯했던 경험: {user_data.get("proud_experience") or ""}
+- 힘들었던 경험과 극복: {user_data.get("hardship") or ""}
+
+[인사담당자들의 조언]
+{tips_context}"""
+
+    response = await llm.ainvoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt),
+    ])
+    return response.content

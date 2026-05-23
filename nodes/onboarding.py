@@ -529,16 +529,15 @@ async def resume_gen(state: dict) -> dict:
     if isinstance(result, ResumeTask):
         if result.user_data is not None:
             try:
+                # 1. 초안 자소서를 작성해 DB에 임시 저장
                 resume_text = await resume.generate_resume(result.user_data)
-                sections = resume.split_resume(resume_text)
                 _save_resume(result.user_id, result.user_data.get("desired_job") or "", resume_text)
-                _update_resume_status(result.user_id, "generated")
-                kakao_response = resume.build_resume_callback_response(sections)
-                kakao_response["template"]["outputs"].append({"simpleText": {"text": "첨삭해드릴까요? 😊"}})
-                kakao_response["template"]["quickReplies"] = [
-                    {"action": "message", "label": "네, 첨삭해주세요", "messageText": "네, 첨삭해주세요"},
-                    {"action": "message", "label": "괜찮아요", "messageText": "괜찮아요"},
-                ]
+                
+                # 2. 첨삭 노드로 즉각 체이닝하여 최종 첨삭본을 빌드하도록 유도
+                return {
+                    "intent": "resume_verify",
+                    "messages": state.get("messages", [])
+                }
             except Exception as e:
                 print(f"[resume_gen] 자소서 생성 오류: {e}")
                 kakao_response = _DB_ERROR

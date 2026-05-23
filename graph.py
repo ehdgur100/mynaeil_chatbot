@@ -24,6 +24,16 @@ def route_intent(state: AgentState) -> str:
         return intent
     return "basic_chat"
 
+def route_resume_gen(state: AgentState) -> str:
+    """
+    resume_gen 노드 수행 완료 후, 만약 자소서 초안 작성이 갓 완료되어 
+    RAG 첨삭 노드로 연쇄 실행해야 한다면 resume_verify 노드로 가고,
+    그렇지 않다면 대화를 완료(END)합니다.
+    """
+    if state.get("intent") == "resume_verify":
+        return "resume_verify"
+    return END
+
 # 1. 챗봇 대화 흐름을 그릴 도화지(StateGraph)를 준비합니다.
 # 이때 대화 내내 들고 다닐 기억 창고인 'AgentState' 규격을 사용합니다.
 workflow = StateGraph(AgentState)
@@ -51,7 +61,10 @@ workflow.add_conditional_edges(
 )
 
 # - 각 전문 상담방에서 응답 처리가 끝나면, 대화의 한 턴을 종료(END) 처리하고 유저에게 메시지를 보냅니다.
-workflow.add_edge("resume_gen", END)
+workflow.add_conditional_edges(
+    "resume_gen",
+    route_resume_gen
+)
 workflow.add_edge("resume_verify", END)
 workflow.add_edge("job_search", END)
 workflow.add_edge("apply_guide", END)
