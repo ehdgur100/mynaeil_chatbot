@@ -530,7 +530,7 @@ async def resume_gen(state: dict) -> dict:
         if result.user_data is not None:
             try:
                 # 1. 초안 자소서를 작성해 DB에 임시 저장
-                resume_text = await resume.generate_resume(result.user_data)
+                resume_text = await resume.generate_resume_with_tips(result.user_data)
                 _save_resume(result.user_id, result.user_data.get("desired_job") or "", resume_text)
                 
                 # 2. 첨삭 노드로 즉각 체이닝하여 최종 첨삭본을 빌드하도록 유도
