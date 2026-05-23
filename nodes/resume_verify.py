@@ -1,7 +1,7 @@
 from typing import Dict, Any
 from state import AgentState
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from nodes.base import llm_smart, get_content
+from nodes.base import llm_fast, get_content
 import database.operations as db_ops
 from database.vector_search import search_resume_tips
 
@@ -93,7 +93,7 @@ async def resume_verify(state: AgentState) -> Dict[str, Any]:
     )
 
     try:
-        response = await llm_smart.ainvoke([
+        response = await llm_fast.ainvoke([
             SystemMessage(content=_VERIFY_SYSTEM_PROMPT),
             HumanMessage(content=user_prompt)
         ])
