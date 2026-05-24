@@ -9,35 +9,79 @@ sys.path.append(parent_dir)
 
 from database import supabase, embeddings
 
-def get_combined_text(row):
+def get_text_for_jobs(row):
     """
-    공고 데이터를 자연스러운 형태의 텍스트(Context)로 변환하여 임베딩 품질을 높입니다.
+    워크넷(jobs) 테이블 텍스트 어댑터
+    - content 안에 지역, 급여가 모두 합쳐져 있으므로 그대로 씀
     """
-    company = row.get("company", "회사명 없음")
-    title = row.get("title", "제목 없음")
-    location = row.get("location", "근무지 미상")
-    emp_type = row.get("employment_type", "고용형태 미상")
-    career = row.get("career_required", "경력무관")
-    salary = row.get("salary", "급여 회사내규에 따름")
+    company = row.get("company", "")
+    title = row.get("title", "")
+    content = row.get("content", "")
+    return f"[{company}] {title}\n상세정보:\n{content}"
+
+def get_text_for_jobs3(row):
+    """
+    서울시(jobs3) 테이블 텍스트 어댑터
+    - 지역, 급여, 고용형태 컬럼이 분리되어 있음
+    """
+    company = row.get("company", "")
+    title = row.get("title", "")
+    location = row.get("location", "")
+    emp_type = row.get("employment_type", "")
+    career = row.get("career_required", "")
+    salary = row.get("salary", "")
     content = row.get("content", "")
 
-    # 검색(추천)에 걸리기 좋게 특징을 자연어로 나열
     text = f"[{company}] {title}\n"
-    text += f"근무지: {location}\n"
-    text += f"고용형태: {emp_type}\n"
-    text += f"경력조건: {career}\n"
-    text += f"급여: {salary}\n"
+    if location: text += f"근무지역: {location}\n"
+    if emp_type: text += f"고용형태: {emp_type}\n"
+    if career: text += f"경력조건: {career}\n"
+    if salary: text += f"급여조건: {salary}\n"
+    text += f"상세내용: {content}"
+    return text
+
+def get_text_for_job_seoul_50(row):
+    """
+    job_seoul_50 테이블 텍스트 어댑터
+    - 컬럼명이 완전히 다름
+    """
+    company = row.get("company_or_org", "")
+    title = row.get("title", "")
+    location = row.get("event_location", "")
+    emp_type = row.get("work_condition_name", "")
+    career = row.get("career_name", "")
+    salary = row.get("pay_text", "")
+    content = row.get("raw_data", "")
+
+    text = f"[{company}] {title}\n"
+    if location: text += f"근무지역: {location}\n"
+    if emp_type: text += f"고용형태: {emp_type}\n"
+    if career: text += f"경력조건: {career}\n"
+    if salary: text += f"급여조건: {salary}\n"
     text += f"상세내용: {content}"
     return text
 
 def process_table(table_name):
-    print(f"\n {table_name} 테이블 임베딩 파이프라인 시작...")
-    batch_size = 50
+    print(f"\n[시작] {table_name} 테이블 OpenAI 임베딩 파이프라인 가동...")
+    
+    # 테이블마다 알맞은 어댑터 함수 매핑
+    if table_name == "jobs":
+        adapter = get_text_for_jobs
+    elif table_name == "jobs3":
+        adapter = get_text_for_jobs3
+    elif table_name == "job_seoul_50":
+        adapter = get_text_for_job_seoul_50
+    else:
+        print(f"[Error] 알 수 없는 테이블: {table_name}")
+        return
+
+    # OpenAI는 Rate Limit이 관대하므로 한 번에 더 많이 처리해도 됨
+    batch_size = 100 
     total_processed = 0
 
     while True:
-        # embedding이 null인 데이터만 가져오기
         try:
+            # 1. embedding이 null인 row 조회
             res = supabase.table(table_name).select("*").is_("embedding", "null").limit(batch_size).execute()
         except Exception as e:
             print(f"[Error] 데이터 조회 실패: {e}")
@@ -45,47 +89,48 @@ def process_table(table_name):
 
         rows = res.data
         if not rows:
-            print(f"[OK] {table_name} 테이블 임베딩 작업 완료! (모두 채워짐)")
+            print(f"[완료] {table_name} 테이블 벡터화 완료! (더 이상 빈 칸이 없습니다)")
             break
             
-        print(f"데이터 {len(rows)}건 임베딩 생성 중...")
+        print(f"[{table_name}] {len(rows)}건 데이터 변환 중 (OpenAI text-embedding-3-small) ...")
         
-        # 1. 텍스트 추출
-        texts_to_embed = [get_combined_text(row) for row in rows]
+        # 2. 어댑터를 이용해 텍스트 추출
+        texts_to_embed = [adapter(row) for row in rows]
         
-        # 2. Gemini를 이용한 병렬 임베딩 생성 (Langchain wrapper)
+        # 3. OpenAI 임베딩 API 호출 (1536차원)
         try:
             vectors = embeddings.embed_documents(texts_to_embed)
         except Exception as e:
-            print(f"[Error] Gemini API 임베딩 생성 실패: {e}")
-            # Rate limit 등의 문제일 수 있으므로 잠깐 대기 후 재시도
-            time.sleep(10)
+            print(f"[Error] OpenAI API 호출 실패: {e}")
+            # API 제한에 걸리면 5초 대기 후 재시도
+            time.sleep(5)
             continue
             
-        # 3. Supabase에 업데이트
+        # 4. 생성된 벡터를 Supabase에 업데이트
         for row, vector in zip(rows, vectors):
             try:
-                # 해당 row의 id를 이용해 update 수행
                 supabase.table(table_name).update({"embedding": vector}).eq("id", row["id"]).execute()
                 total_processed += 1
             except Exception as e:
-                print(f"[Warning] DB 업데이트 실패 (ID: {row['id']}): {e}")
+                print(f"[Warning] DB 업데이트 실패 (ID: {row.get('id')}): {e}")
                 
-        print(f"[OK] 누적 {total_processed}건 벡터 변환 및 DB 저장 완료")
+        print(f"[OK] {table_name} 누적 {total_processed}건 1536차원 벡터 저장 성공!")
         
-        # Gemini API Rate Limit 보호를 위해 약간 대기
-        time.sleep(1)
+        # 무리한 서버 부하 방지용 짧은 휴식
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     if not supabase:
-        print("[Error] Supabase 클라이언트가 설정되지 않았습니다.")
+        print("[Error] Supabase 클라이언트 연결 실패. config 설정을 확인하세요.")
         sys.exit(1)
         
     print("====================================")
-    print(" AI 추천을 위한 벡터 임베딩 엔진 가동")
+    print(" OpenAI 1536차원 추천 엔진 파이프라인")
     print("====================================")
     
+    # 3개의 이기종 테이블을 연속으로 처리합니다
     process_table("jobs")
     process_table("jobs3")
+    process_table("job_seoul_50")
     
-    print("\n 모든 파이프라인 작업이 종료되었습니다!")
+    print("\n[완료] 모든 테이블의 임베딩 처리가 끝났습니다!")

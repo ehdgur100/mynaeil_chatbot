@@ -80,3 +80,25 @@ def get_jobs_from_db(keyword: str, location: str, limit: int = 10) -> list[dict]
     except Exception as e:
         print(f"[DB Job Search Error] {e}")
         return []
+
+def get_courses_from_db(subject: str, location: str, limit: int = 5) -> list[dict]:
+    """미리 저장해 둔 courses 테이블에서 키워드와 지역에 맞는 교육 과정을 가져옵니다."""
+    if supabase is None:
+        return []
+    try:
+        query = supabase.table("courses").select("*")
+        
+        # 키워드 필터링
+        if subject and subject != "재취업 일반":
+            query = query.or_(f"title.ilike.%{subject}%,institution.ilike.%{subject}%")
+            
+        # 지역 필터링
+        if location and location not in ("서울", "경기", "전국"):
+            loc_clean = location.replace("서울 ", "").replace("경기 ", "").strip()
+            query = query.ilike("location", f"%{loc_clean}%")
+            
+        result = query.limit(limit).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"[DB Course Search Error] {e}")
+        return []

@@ -3,7 +3,6 @@ from state import AgentState
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from nodes.base import llm_fast, get_content
 import database.operations as db_ops
-from services.hrd_api import HRDNetAPIClient
 import config
 
 async def edu_recommend(state: AgentState) -> Dict[str, Any]:
@@ -42,14 +41,17 @@ async def edu_recommend(state: AgentState) -> Dict[str, Any]:
         print(f"[Edu Keyword Extract Error] {e}")
         subject = desired_job or "재취업 일반"
 
-    # 3. HRD-Net API 클라이언트를 활용한 교육 검색 수행
-    hrd_client = HRDNetAPIClient(auth_key=getattr(config, "HRD_API_KEY", ""))
+    # 3. DB 사전 수집본인 courses 테이블에서 교육 검색 수행
     location = profile.get("location", "")
     
     try:
-        courses = await hrd_client.get_training_courses(subject, location=location)
+        # 동기 DB 함수이므로 asyncio.to_thread로 감싸서 비동기 처리
+        import asyncio
+        courses = await asyncio.to_thread(
+            db_ops.get_courses_from_db, subject, location, 5
+        )
     except Exception as e:
-        print(f"[HRD API Error] {e}")
+        print(f"[DB Course Search Error] {e}")
         courses = []
 
     # 4. 추천 결과 포맷팅 및 응답 생성

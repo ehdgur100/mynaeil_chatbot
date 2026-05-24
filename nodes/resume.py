@@ -204,3 +204,67 @@ def build_resume_callback_response(sections: list[str]) -> dict:
             ]
         },
     }
+
+
+_YOUTUBE_TIPS_CONTEXT = """
+[면접왕 이형의 조언]
+자기소개서 성장과정이나 직무 경험을 쓸 때는 '열심히 하겠다', '성실하다' 같은 추상적인 표현은 피하십시오. 대신 STAR 기법(상황, 과제, 행동, 결과)을 적용해 '어떤 상황에서 어떤 행동을 해서 수치적으로 무슨 성과를 냈다'로 명확하고 구체적으로 적어야 신뢰감을 줍니다.
+
+[인사담당자 채널의 조언]
+중장년층 구직자들의 가장 큰 무기는 풍부한 실무 경험과 위기 대응력입니다. 자소서 지원동기 부분에는 내가 과거에 어려운 한계 상황을 어떻게 노련한 책임감으로 극복했는지 구체적인 에피소드를 녹여내는 것이 인사담당자들의 눈길을 끄는 비결입니다.
+
+[면접관 제이의 조언]
+입사 후 포부를 작성할 때 단순히 '뼈를 묻겠다'는 식의 무조건적인 충성 맹세는 감점 요인입니다. 그보다는 '나의 과거 직무 경험과 회사의 현재 비즈니스 과제를 매칭하여, 1년 내에 이 직무에서 구체적으로 어떤 기여를 할 것인지' 기여 중심의 구체적 목표를 제시해야 합니다.
+"""
+
+
+async def generate_resume_with_tips(user_data: dict, additional_context: str = "") -> str:
+    """유튜브 인사담당자들의 조언을 100% 반영하여 최종 완성된 자기소개서를 생성 및 수정합니다."""
+    llm = ChatOpenAI(model="gpt-4o-mini", api_key=config.OPENAI_API_KEY)
+    
+    system_prompt = """당신은 5060세대 신중년 구직자의 자기소개서 작성을 돕는 전문 취업 컨설턴트입니다.
+제공된 [인사담당자들의 조언]을 참고하여, 지원자의 정보를 가장 돋보이게 다듬은 완성본 자기소개서를 직접 작성해 주세요.
+
+작성 및 첨삭 원칙:
+1. 제공된 [인사담당자들의 조언](STAR 기법 수치화 성과, 신중년 위기대응 에피소드, 기여 중심 구체적 포부)이 자소서 본문에 100% 완벽히 자연스럽게 녹아들어 첨삭이 완성되도록 작성하십시오.
+2. 최종 자소서 텍스트에는 분석용 메타 태그나 유튜브 출처 텍스트를 본문에 절대 포함하지 마십시오. 오직 즉시 제출 가능한 순수 자기소개서 텍스트만 작성해야 합니다.
+3. 각 항목은 반드시 500자 이내의 친절하고 따뜻한 해요체 문장으로 작성해 주세요.
+
+출력 형식:
+반드시 아래 형식으로만 출력하세요. 다른 인사말이나 잡설은 적지 마십시오.
+
+[성장과정]
+내용
+
+[지원동기]
+내용
+
+[직무 경험 및 강점]
+내용
+
+[입사 후 포부]
+내용"""
+
+    user_prompt = f"""아래 지원자 정보와 조언을 바탕으로 완성도 높은 자소서를 작성해 주세요.
+
+[지원자 정보]
+- 핵심 경력: {user_data.get("career") or ""}
+- 보유 자격증 및 기술: {user_data.get("skills") or ""}
+- 희망 직무: {user_data.get("desired_job") or ""}
+- 근무 희망 지역: {user_data.get("location") or ""}
+- 근무 조건: {user_data.get("work_condition") or ""}
+- 핵심 강점: {user_data.get("strengths") or ""}
+- 최우선 목표: {user_data.get("goal") or ""}
+- 뿌듯했던 경험: {user_data.get("proud_experience") or ""}
+- 힘들었던 경험과 극복: {user_data.get("hardship") or ""}
+
+[인사담당자들의 조언]
+{_YOUTUBE_TIPS_CONTEXT}
+
+{additional_context}"""
+
+    response = await llm.ainvoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt),
+    ])
+    return response.content

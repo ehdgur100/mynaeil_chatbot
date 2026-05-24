@@ -7,16 +7,17 @@ from database.connection import supabase
 import config
 
 # 1. OpenAI 임베딩 모델의 차원수를 설정합니다. 
-# - text-embedding-3-large 모델은 텍스트를 3072개의 긴 숫자로 된 벡터로 변환합니다.
-# - 만약 데이터베이스 테이블의 컬럼이 1536차원 등 다른 크기로 설정되어 있다면 .env에서 변경 가능합니다.
-EMBEDDING_DIMENSIONS = int(os.environ.get("EMBEDDING_DIMENSIONS", "3072"))
+# - text-embedding-3-small 모델은 텍스트를 1536개의 긴 숫자로 된 벡터로 변환합니다.
+# - 만약 데이터베이스 테이블의 컬럼이 3072차원 등 다른 크기로 설정되어 있다면 .env에서 변경 가능합니다.
+EMBEDDING_DIMENSIONS = int(os.environ.get("EMBEDDING_DIMENSIONS", "1536"))
 
 openai_api_key = config.OPENAI_API_KEY or "dummy_openai_key_for_import_check"
 
 # 2. OpenAI 임베딩 엔진 객체를 준비합니다.
 # - 이 엔진은 자연어로 된 문장을 컴퓨터가 이해하고 유사도를 비교할 수 있도록 숫자의 목록(벡터)으로 인코딩해 줍니다.
+# - 비용 절감과 인프라 효율을 위해 1536차원의 text-embedding-3-small 모델을 사용합니다.
 embeddings = OpenAIEmbeddings(
-    model="text-embedding-3-large",
+    model="text-embedding-3-small",
     openai_api_key=openai_api_key,
     dimensions=EMBEDDING_DIMENSIONS
 )
@@ -68,7 +69,7 @@ async def search_resume_tips(query: str, k: int = 3) -> List[Document]:
     이 기능이 작동하려면 Supabase SQL Editor에서 아래 SQL문을 실행해 'match_youtube_tips' 함수를 생성해 두어야 합니다:
     
     CREATE OR REPLACE FUNCTION match_youtube_tips (
-      query_embedding vector(3072),
+      query_embedding vector(1536),
       match_threshold float,
       match_count int
     )

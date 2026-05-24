@@ -248,6 +248,11 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
         # "처음부터" 입력 시 언제든 초기화
         if stripped == "처음부터":
             _reset_user(user_id)
+            try:
+                if supabase is not None:
+                    supabase.table("resumes").delete().eq("user_id", user_id).execute()
+            except Exception as e:
+                print(f"[Onboarding Reset Warning] resumes 삭제 실패: {e}")
             msg = "처음부터 다시 시작할게요! 😊\n\n" + STEPS[0]["question"]
             return _build_response(msg, STEPS[0]["quick_replies"])
 
@@ -264,7 +269,65 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 sections=resume.split_resume(saved["content"]),
             )
 
+        saved_resume = _get_resume(user_id)
         user = _get_user(user_id)
+
+        # 일반 진입 키워드 처리 ("자소서 작성", "자소서", "자기소개서 작성", "이력서" 등)
+        entry_keywords = {"자소서 작성", "자기소개서 작성", "자소서", "이력서"}
+        if stripped in entry_keywords:
+            # 1. 기존에 저장된 자소서가 있는 경우 -> 통합 제어 메뉴 제공
+            if saved_resume is not None:
+                msg = (
+                    "이전에 작성하신 자기소개서가 보관되어 있습니다! 📋\n"
+                    "이 자소서를 어떻게 도와드릴까요? 아래 버튼을 눌러 선택해주세요."
+                )
+                return _build_response(msg, ["📋 기존 자소서 보기", "✍️ 기존 자소서 첨삭/수정", "✨ 새로 작성하기"])
+
+            # 2. 저장된 자소서는 없으나 온보딩 중간 단계인 경우
+            if user is not None and 0 < user.get("step", 0) < 9:
+                msg = "이전에 작성하시던 정보가 있습니다. 이어서 작성하시겠어요? 😊"
+                return _build_response(msg, ["이어서 작성하기", "처음부터"])
+
+        # 메뉴 버튼 클릭에 대한 직접 분기 처리
+        if stripped == "📋 기존 자소서 보기" and saved_resume is not None:
+            sections = resume.split_resume(saved_resume["content"])
+            resp = resume.build_resume_callback_response(sections)
+            resp["template"]["outputs"].append({
+                "simpleText": {"text": "이 자기소개서를 첨삭하거나 새로 작성하시겠어요? 😊"}
+            })
+            resp["template"]["quickReplies"] = [
+                {"action": "message", "label": "✍️ 기존 자소서 첨삭/수정", "messageText": "✍️ 기존 자소서 첨삭/수정"},
+                {"action": "message", "label": "✨ 새로 작성하기", "messageText": "✨ 새로 작성하기"}
+            ]
+            return resp
+
+        if stripped == "✍️ 기존 자소서 첨삭/수정" and saved_resume is not None:
+            _update_resume_status(user_id, "editing")
+            msg = (
+                "어떻게 수정해드릴까요? 😊\n\n"
+                "- '네, 첨삭해주세요'를 입력하시면 유튜브 꿀팁 기반으로 꼼꼼히 첨삭해 드려요.\n"
+                "- 또는 수정하고 싶은 부분(예: '더 부드럽게 써줘', '경비직 강점 강조')을 아래 채팅에 자유롭게 입력해주세요!"
+            )
+            return _build_response(msg, ["네, 첨삭해주세요", "완료", "처음부터"])
+
+        if stripped == "✨ 새로 작성하기":
+            _reset_user(user_id)
+            try:
+                if supabase is not None:
+                    supabase.table("resumes").delete().eq("user_id", user_id).execute()
+            except Exception as e:
+                print(f"[Onboarding Reset Warning] resumes 삭제 실패: {e}")
+            msg = "새롭게 자기소개서 작성을 시작합니다! 😊\n\n" + STEPS[0]["question"]
+            return _build_response(msg, STEPS[0]["quick_replies"])
+
+        if stripped == "이어서 작성하기" and user is not None and 0 < user.get("step", 0) < 9:
+            step = user.get("step", 0)
+            return _build_response(STEPS[step]["question"], STEPS[step]["quick_replies"])
+
+        # 추천 공고 직후의 입력 이벤트 분기 처리 (step 6 진입 유도)
+        if user is not None and user.get("resume_status") == "jobs_recommended":
+            _update_resume_status(user_id, "none")
+            return _build_response(STEPS[6]["question"], STEPS[6]["quick_replies"])
 
         # resume_status 기반 상태 처리
         if user is not None and user.get("resume_status", "none") != "none":
@@ -327,9 +390,21 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 )
 
             if resume_status == "done":
+                # 만약 완료 상태에서 수정 요구를 보냈다면 편집 상태로 자동 전환하여 수정 진행
+                if len(stripped) > 0 and stripped not in ["완료", "자소서 보여줘", "저장된 자소서"]:
+                    _update_resume_status(user_id, "editing")
+                    return ResumeRevisionTask(
+                        user_id=user_id,
+                        immediate_message="자소서를 다시 수정 중이에요. 잠시만 기다려주세요 ✍️",
+                        existing_content=saved_resume["content"] if saved_resume else "",
+                        user_request=stripped,
+                        revision_count=user.get("revision_count", 0),
+                        desired_job=saved_resume.get("desired_job", "") if saved_resume else "",
+                        user_data=dict(user),
+                    )
                 return _build_response(
                     "자소서가 완성됐어요! 🎉\n'자소서 보여줘'로 언제든 확인하세요 😊",
-                    [],
+                    ["📋 기존 자소서 보기", "✨ 새로 작성하기"],
                 )
 
         # 신규 사용자: DB에 없으면 생성 후 환영 메시지 + 첫 질문
@@ -375,6 +450,58 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 )
             _retry_counts.pop(retry_key, None)
 
+        # 6번째 질문(strengths, index 5) 답변이 완료되었을 때 공고 추천 분기
+        if step == 5:
+            _save_answer(user_id, field, stripped, 6)
+            _update_resume_status(user_id, "jobs_recommended")
+            
+            profile = _get_user(user_id) or {}
+            search_keyword = profile.get("desired_job") or "시니어"
+            search_location = profile.get("location") or "서울"
+            
+            from database.operations import get_jobs_from_db
+            from nodes.job import content_based_filtering
+            
+            try:
+                db_jobs = get_jobs_from_db(search_keyword, search_location, limit=10)
+                seen_titles = set()
+                all_jobs = []
+                for job in db_jobs:
+                    t = job.get("title")
+                    if t not in seen_titles:
+                        seen_titles.add(t)
+                        if "job_category" not in job:
+                            job["job_category"] = search_keyword
+                        all_jobs.append(job)
+                recommended = content_based_filtering(profile, all_jobs, top_n=3)
+            except Exception as e:
+                print(f"[Onboarding Job Recommendation Error] {e}")
+                recommended = []
+                
+            if recommended:
+                job_list_str = ""
+                for i, job in enumerate(recommended):
+                    job_list_str += (
+                        f"📌 {i+1}. {job.get('title')}\n"
+                        f"  - 업체명: {job.get('company')}\n"
+                        f"  - 지역: {job.get('location')}\n"
+                        f"  - 급여: {job.get('salary', '협의')}\n"
+                        f"  - 공고링크: {job.get('url')}\n\n"
+                    )
+                msg = (
+                    f"🔍 입력해주신 정보를 바탕으로 찾은 맞춤 일자리예요! 💼\n\n"
+                    f"{job_list_str.strip()}\n\n"
+                    f"이 일자리에 바로 지원하실 수 있도록 맞춤형 자기소개서를 완성해 드릴까요? 😊\n"
+                    f"아래 버튼을 누르시면 남은 3가지 질문을 이어갈게요!"
+                )
+            else:
+                msg = (
+                    f"입력해주신 정보를 기반으로 주변 일자리를 열심히 조회해보았으나, 현재 딱 맞는 공고가 조회되지 않네요 😥\n\n"
+                    f"그래도 다른 직무나 공고에 언제든 지원할 수 있도록 계속해서 자기소개서를 작성해 드릴까요? 😊"
+                )
+                
+            return _build_response(msg, ["이어서 자소서 작성하기", "처음부터"])
+
         _save_answer(user_id, field, stripped, step + 1)
 
         if step + 1 >= 9:
@@ -402,16 +529,15 @@ async def resume_gen(state: dict) -> dict:
     if isinstance(result, ResumeTask):
         if result.user_data is not None:
             try:
-                resume_text = await resume.generate_resume(result.user_data)
-                sections = resume.split_resume(resume_text)
+                # 1. 초안 자소서를 작성해 DB에 임시 저장
+                resume_text = await resume.generate_resume_with_tips(result.user_data)
                 _save_resume(result.user_id, result.user_data.get("desired_job") or "", resume_text)
-                _update_resume_status(result.user_id, "generated")
-                kakao_response = resume.build_resume_callback_response(sections)
-                kakao_response["template"]["outputs"].append({"simpleText": {"text": "첨삭해드릴까요? 😊"}})
-                kakao_response["template"]["quickReplies"] = [
-                    {"action": "message", "label": "네, 첨삭해주세요", "messageText": "네, 첨삭해주세요"},
-                    {"action": "message", "label": "괜찮아요", "messageText": "괜찮아요"},
-                ]
+                
+                # 2. 첨삭 노드로 즉각 체이닝하여 최종 첨삭본을 빌드하도록 유도
+                return {
+                    "intent": "resume_verify",
+                    "messages": state.get("messages", [])
+                }
             except Exception as e:
                 print(f"[resume_gen] 자소서 생성 오류: {e}")
                 kakao_response = _DB_ERROR
