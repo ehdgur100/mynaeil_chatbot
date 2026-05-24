@@ -30,7 +30,7 @@ _SYSTEM_PROMPT = """당신은 50~60대 신중년 구직자의 취업을 돕는
 3단계. 내용
 ...
 
-📌 공고 원문: (공고 원문 URL)"""
+📌 공고 원문: {source_url}"""
 
 _USER_TEMPLATE = """아래 공고의 지원 방법을 안내해주세요.
 
@@ -44,30 +44,26 @@ _USER_TEMPLATE = """아래 공고의 지원 방법을 안내해주세요.
 
 
 async def get_apply_guide(job: dict) -> str:
+    source_url = job.get("source_url") or "알 수 없음"
     llm = ChatOpenAI(model="gpt-4o-mini", api_key=config.OPENAI_API_KEY)
     user_prompt = _USER_TEMPLATE.format(
-        company=job.get("company") or job.get("company_name") or "정보 없음",
-        title=job.get("title") or job.get("job_category") or "정보 없음",
-        description=job.get("content") or job.get("description") or "정보 없음",
+        company=job.get("company") or "정보 없음",
+        title=job.get("title") or "정보 없음",
+        description=job.get("description") or "정보 없음",
         location=job.get("location") or "정보 없음",
-        deadline=job.get("deadline") or job.get("end_date") or "미정",
-        source_url=job.get("source_url") or job.get("url") or "정보 없음",
+        deadline=job.get("deadline") or "미정",
+        source_url=source_url,
     )
-    response = await llm.ainvoke([
-        SystemMessage(content=_SYSTEM_PROMPT),
-        HumanMessage(content=user_prompt),
-    ])
-    return response.content
-
-
-async def apply_guide(_state: dict) -> dict:
-    msg = (
-        "지원 방법 안내는 일자리 검색 후 공고를 선택하시면\n"
-        "단계별로 안내해드려요 😊"
-    )
-    return {
-        "kakao_response": {
-            "version": "2.0",
-            "template": {"outputs": [{"simpleText": {"text": msg}}]},
-        }
-    }
+    try:
+        response = await llm.ainvoke([
+            SystemMessage(content=_SYSTEM_PROMPT),
+            HumanMessage(content=user_prompt),
+        ])
+        return response.content
+    except Exception as e:
+        print(f"[get_apply_guide] 오류: {e}")
+        return (
+            f"지원 방법 안내 중 오류가 발생했어요 😥\n"
+            f"공고 원문을 직접 확인해 주세요.\n"
+            f"👉 {source_url}"
+        )
