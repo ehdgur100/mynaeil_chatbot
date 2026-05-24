@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Optional
 from database.connection import supabase
-from . import resume
+from . import resume, guide
+import database.operations as db_ops
 
 
 @dataclass
@@ -29,6 +30,12 @@ class ResumeReviewTask:
     immediate_message: str
     resume_text: str
     desired_job: str = ""
+
+
+@dataclass
+class ApplyGuideTask:
+    user_id: str
+    job: dict
 
 
 STEPS = [
@@ -302,8 +309,10 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 if stripped == "완료":
                     _update_resume_status(user_id, "done")
                     return _build_response(
-                        "자소서가 완성됐어요! 🎉\n'자소서 보여줘'로 언제든 확인하세요 😊",
-                        [],
+                        "자소서가 완성됐어요! 🎉\n"
+                        "'자소서 보여줘'로 언제든 확인하세요 😊\n"
+                        "이 공고에 어떻게 지원하는지 안내해드릴까요?",
+                        ["네, 알려주세요", "괜찮아요"],
                     )
                 saved = _get_resume(user_id)
                 if saved is None:
@@ -327,6 +336,20 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 )
 
             if resume_status == "done":
+                if stripped == "네, 알려주세요":
+                    job_id = user.get("selected_job_id")
+                    if not job_id:
+                        return _build_response(
+                            "지원할 공고 정보가 없어요.\n일자리 검색을 먼저 해주세요 😊", []
+                        )
+                    job = db_ops.get_job_by_id(str(job_id))
+                    if not job:
+                        return _build_response(
+                            "공고 정보를 찾을 수 없어요 😥\n다시 시도해 주세요.", []
+                        )
+                    return ApplyGuideTask(user_id=user_id, job=job)
+                if stripped == "괜찮아요":
+                    return _build_response("필요하시면 언제든 말씀해 주세요 😊", [])
                 return _build_response(
                     "자소서가 완성됐어요! 🎉\n'자소서 보여줘'로 언제든 확인하세요 😊",
                     [],
@@ -468,6 +491,16 @@ async def resume_gen(state: dict) -> dict:
         except Exception as e:
             print(f"[resume_gen] 수정 오류: {e}")
             kakao_response = _DB_ERROR
+
+    elif isinstance(result, ApplyGuideTask):
+        try:
+            guide_text = await guide.get_apply_guide(result.job)
+            kakao_response = _build_response(guide_text, [])
+        except Exception as e:
+            print(f"[resume_gen] 지원 안내 오류: {e}")
+            kakao_response = _build_response(
+                "지원 방법 안내 중 오류가 발생했어요 😥\n다시 시도해 주세요.", []
+            )
 
     else:
         kakao_response = result
