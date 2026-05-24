@@ -9,20 +9,19 @@ from database import supabase
 
 async def recommend_jobs_fallback_local(user_embedding: list, limit: int = 5):
     """
-    Supabase RPC 호출 실패 시 로컬에서 3개 테이블의 임베딩 유사도를 계산하여
+    Supabase RPC 호출 실패 시 로컬에서 jobs 테이블의 임베딩 유사도를 계산하여
     상위 공고를 추천하는 robust fallback 함수.
+    (실제 데이터가 없는 jobs3 및 job_seoul_50 조회를 제외하여 낭비를 방지하고, 
+     jobs 테이블에서 후보군을 80개로 확장 조회해 추천 정확도를 향상시킵니다.)
     """
-    tables = ["jobs", "jobs3", "job_seoul_50"]
     combined_jobs = []
-    
-    for table in tables:
-        try:
-            res = supabase.table(table).select("*").not_.is_("embedding", "null").limit(30).execute()
-            for row in res.data:
-                row["_source_table"] = table
-                combined_jobs.append(row)
-        except Exception as table_err:
-            print(f"[추천 로컬 fallback] {table} 조회 실패: {table_err}")
+    try:
+        res = supabase.table("jobs").select("*").not_.is_("embedding", "null").limit(80).execute()
+        for row in res.data:
+            row["_source_table"] = "jobs"
+            combined_jobs.append(row)
+    except Exception as table_err:
+        print(f"[추천 로컬 fallback] jobs 조회 실패: {table_err}")
             
     if not combined_jobs:
         return []
