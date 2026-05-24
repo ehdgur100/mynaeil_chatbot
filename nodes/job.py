@@ -21,6 +21,9 @@ def content_based_filtering(user_profile: Dict[str, Any], jobs: List[Dict[str, A
             user_words.extend([w.strip() for w in val.replace(",", " ").split() if w.strip()])
 
     scored_jobs = []
+    desired_job = user_profile.get("desired_job") or ""
+    desired_job_tokens = [w.strip() for w in desired_job.replace(",", " ").split() if w.strip()]
+
     for job in jobs:
         # 공고 텍스트 병합 (제목 + 내용 + 카테고리)
         job_text = f"{job.get('title', '')} {job.get('content', '')} {job.get('job_category', '')}"
@@ -29,8 +32,8 @@ def content_based_filtering(user_profile: Dict[str, Any], jobs: List[Dict[str, A
         score = 0.0
         for word in user_words:
             if word in job_text:
-                # 희망 직무 매칭 시 가중치 부여
-                if word == user_profile.get("desired_job"):
+                # 희망 직무 토큰 매칭 시 가중치 부여
+                if word in desired_job_tokens:
                     score += 5.0
                 else:
                     score += 1.0

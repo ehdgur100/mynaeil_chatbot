@@ -53,11 +53,11 @@ def get_resume(user_id: str) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 def get_jobs_from_db(keyword: str, location: str, limit: int = 10) -> list[dict]:
-    """미리 크롤링하여 저장해 둔 jobs3 테이블에서 키워드와 지역에 맞는 일자리 공고를 가져옵니다."""
+    """미리 크롤링하여 저장해 둔 jobs 테이블에서 키워드와 지역에 맞는 일자리 공고를 가져옵니다."""
     if supabase is None:
         return []
     try:
-        query = supabase.table("jobs3").select("*")
+        query = supabase.table("jobs").select("*")
         
         # 키워드 매칭 조건 구성
         filter_conditions = []
