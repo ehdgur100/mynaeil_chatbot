@@ -9,19 +9,28 @@ from database import supabase
 
 async def recommend_jobs_fallback_local(user_embedding: list, limit: int = 5):
     """
-    Supabase RPC 호출 실패 시 로컬에서 jobs 테이블의 임베딩 유사도를 계산하여
+    Supabase RPC 호출 실패 시 로컬에서 jobs 및 job_seoul_50 테이블의 임베딩 유사도를 계산하여
     상위 공고를 추천하는 robust fallback 함수.
-    (실제 데이터가 없는 jobs3 및 job_seoul_50 조회를 제외하여 낭비를 방지하고, 
-     jobs 테이블에서 후보군을 80개로 확장 조회해 추천 정확도를 향상시킵니다.)
     """
+    tables = ["jobs", "job_seoul_50"]
     combined_jobs = []
-    try:
-        res = supabase.table("jobs").select("*").not_.is_("embedding", "null").limit(80).execute()
-        for row in res.data:
-            row["_source_table"] = "jobs"
-            combined_jobs.append(row)
-    except Exception as table_err:
-        print(f"[추천 로컬 fallback] jobs 조회 실패: {table_err}")
+    
+    for table in tables:
+        try:
+            res = supabase.table(table).select("*").not_.is_("embedding", "null").limit(50).execute()
+            for row in res.data:
+                row["_source_table"] = table
+                # 컬럼명이 다른 부분을 통합 매칭에 호환되도록 표준화
+                if table == "job_seoul_50":
+                    row["company"] = row.get("company_or_org") or "기업명 비공개"
+                    row["content"] = row.get("occupation_name") or ""
+                    row["url"] = row.get("source_url") or "https://www.50plus.or.kr/"
+                    row["location"] = row.get("event_location") or "서울"
+                    row["salary"] = row.get("pay_text") or "협의"
+                    row["deadline"] = row.get("apply_end") or "채용시까지"
+                combined_jobs.append(row)
+        except Exception as table_err:
+            print(f"[추천 로컬 fallback] {table} 조회 실패: {table_err}")
             
     if not combined_jobs:
         return []
