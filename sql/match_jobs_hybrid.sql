@@ -2,6 +2,8 @@
 -- 이 함수는 j.id 와 리턴 테이블 정의의 id 명칭이 충돌하는 모호성 에러(column reference "id" is ambiguous)를 방지하기 위해 
 -- #variable_conflict use_column 지시어를 지정하고 j.id 와 j.embedding 등을 명시적으로 타겟팅합니다.
 
+DROP FUNCTION IF EXISTS public.match_jobs_hybrid(vector, integer);
+
 CREATE OR REPLACE FUNCTION public.match_jobs_hybrid(
   query_embedding vector(1536),
   match_count int
