@@ -32,7 +32,7 @@ BEGIN
     j.url,
     j.location,
     j.salary,
-    j.deadline,
+    j.deadline::text,
     1 - (j.embedding <=> query_embedding) AS similarity
   FROM public.jobs j
   WHERE j.embedding IS NOT NULL
