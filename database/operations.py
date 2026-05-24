@@ -52,19 +52,6 @@ def get_resume(user_id: str) -> Optional[dict]:
     result = supabase.table("resumes").select("*").eq("user_id", user_id).execute()
     return result.data[0] if result.data else None
 
-def get_job_by_id(job_id: str) -> Optional[dict]:
-    """jobs, job_seoul_50, jobs3 테이블 중 해당 ID의 공고를 조회합니다."""
-    if supabase is None:
-        return None
-    for table in ("jobs", "job_seoul_50", "jobs3"):
-        try:
-            result = supabase.table(table).select("*").eq("id", job_id).limit(1).execute()
-            if result.data:
-                return result.data[0]
-        except Exception as e:
-            print(f"[get_job_by_id] {table} 조회 실패: {e}")
-    return None
-
 def get_jobs_from_db(keyword: str, location: str, limit: int = 10) -> list[dict]:
     """미리 크롤링하여 저장해 둔 jobs3 테이블에서 키워드와 지역에 맞는 일자리 공고를 가져옵니다."""
     if supabase is None:
