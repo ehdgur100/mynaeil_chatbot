@@ -17,3 +17,9 @@ class AgentState(TypedDict):
 
     # 파악된 사용자 의도 (버튼 클릭 등으로 명시적으로 주입될 수도 있음)
     intent: Optional[str]
+
+    # 카카오톡 응답 커스텀 JSON 포맷 저장 (리치 말풍선, 퀵 리플라이 등)
+    kakao_response: Optional[dict]
+
+    # 카카오톡 비동기 콜백용 URL
+    callback_url: Optional[str]
