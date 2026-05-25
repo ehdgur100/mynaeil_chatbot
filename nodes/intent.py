@@ -22,14 +22,14 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     input_clean = user_message = user_input.strip().lower()
 
     # 2. 온보딩 진행 체크 (Smart Bypass 예외)
-    # - 만약 사용자가 현재 7단계 자소서 온보딩 문답을 진행 중(step 0~6)인 상태라면,
+    # - 만약 사용자가 현재 9단계 자소서 온보딩 문답을 진행 중(step 0~8)인 상태라면,
     # - 흐름을 방해하지 않고 자소서 작성 노드(resume_gen)로 강제 고정합니다.
     # - 단! 온보딩 중이라도 "검증", "피드백", "평가" 등의 명시적 키워드가 있는 경우는 온보딩 루프를 탈출하도록 예외 처리합니다.
     try:
         profile = get_user_profile(user_id)
         if profile is not None:
             step = profile.get("step", 0)
-            # 온보딩 중간 단계인 경우(0~8) 무조건 자소서 온보딩으로 강제 라우팅
+            # 온보딩 중간 단계인 경우 무조건 자소서 온보딩으로 강제 라우팅
             if 0 <= step < 9 and not any(k in input_clean for k in ["검증", "평가", "첨삭", "피드백", "판별"]):
                 print(f"[Intent] 온보딩 진행 유저 확인 (현재 step: {step}) → 자소서 루프 강제 라우팅")
                 return {"intent": "resume_gen"}

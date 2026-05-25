@@ -76,18 +76,22 @@ def get_job_by_id(job_id: str) -> Optional[dict]:
     return None
 
 def get_jobs_from_db(keyword: str, location: str, limit: int = 10) -> list[dict]:
-    """미리 크롤링하여 저장해 둔 jobs3 테이블에서 키워드와 지역에 맞는 일자리 공고를 가져옵니다."""
+    """미리 크롤링하여 저장해 둔 jobs 테이블에서 키워드와 지역에 맞는 일자리 공고를 가져옵니다."""
     if supabase is None:
         return []
     try:
-        query = supabase.table("jobs3").select("*")
+        query = supabase.table("jobs").select("*")
         
         # 키워드 매칭 조건 구성
         filter_conditions = []
         if keyword:
-            filter_conditions.append(f"job_category.ilike.%{keyword}%")
-            filter_conditions.append(f"title.ilike.%{keyword}%")
-            filter_conditions.append(f"content.ilike.%{keyword}%")
+            # 카테고리 기호('·', '/') 등이 포함된 복합 키워드를 공백으로 쪼개서 각각 OR 검색을 수행하도록 고도화
+            # 예: '청소·환경미화' -> ['청소', '환경미화']
+            sub_keywords = [k.strip() for k in keyword.replace("·", " ").replace("/", " ").split() if k.strip()]
+            for kw in sub_keywords:
+                filter_conditions.append(f"job_category.ilike.%{kw}%")
+                filter_conditions.append(f"title.ilike.%{kw}%")
+                filter_conditions.append(f"content.ilike.%{kw}%")
             
         # 지역 매칭 조건 구성
         if location and location not in ("서울", "경기", "전국"):
