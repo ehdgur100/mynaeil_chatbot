@@ -15,7 +15,6 @@ def route_intent(state: AgentState) -> str:
         "resume_gen",       # 자기소개서 작성 및 온보딩 질문
         "resume_verify",    # 자소서 유튜브 RAG 검증
         "job_search",       # 일자리 검색 및 추천
-        "apply_guide",      # 구직/면접 가이드북
         "basic_chat"        # 일반 인사 및 대화 (기본 대기실)
     ]
     
@@ -47,7 +46,6 @@ workflow.add_node("resume_gen", nodes.resume_gen)         # 자소서 작성 및
 workflow.add_node("resume_verify", nodes.resume_verify)   # 유튜브 팁 기반 자소서 검증방
 workflow.add_node("job_search", nodes.job_search)         # 맞춤형 일자리 찾기방
 
-workflow.add_node("apply_guide", nodes.apply_guide)       # 면접 팁 등 가이드북 제공방
 workflow.add_node("basic_chat", nodes.basic_chat)         # 일상 대화 및 안내 안내방
 
 # 3. 대화의 시작 지점과 이동 규칙(엣지)을 연결합니다.
@@ -67,7 +65,6 @@ workflow.add_conditional_edges(
 )
 workflow.add_edge("resume_verify", END)
 workflow.add_edge("job_search", END)
-workflow.add_edge("apply_guide", END)
 workflow.add_edge("basic_chat", END)
 
 # 4. 대화 기록을 기억할 메모리 장치(체크포인터)를 활성화합니다.

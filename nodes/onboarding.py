@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 from database.connection import supabase
 from . import resume
+from nodes.guide import get_apply_guide
+import database.operations as db_ops
 
 
 @dataclass
@@ -365,8 +367,8 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 if stripped == "완료":
                     _update_resume_status(user_id, "done")
                     return _build_response(
-                        "자소서가 완성됐어요! 🎉\n'자소서 보여줘'로 언제든 확인하세요 😊",
-                        [],
+                        "자소서가 완성됐어요! 🎉\n이 공고에 어떻게 지원하는지 안내해드릴까요?",
+                        ["네, 알려주세요", "괜찮아요"],
                     )
                 saved = _get_resume(user_id)
                 if saved is None:
@@ -390,8 +392,24 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 )
 
             if resume_status == "done":
+                if stripped == "네, 알려주세요":
+                    profile = db_ops.get_user_profile(user_id) or {}
+                    selected_job_id = profile.get("selected_job_id")
+                    if not selected_job_id:
+                        return _build_response(
+                            "공고 정보를 찾을 수 없어요 😥\n공고 원문을 직접 확인해 주세요.", []
+                        )
+                    job = db_ops.get_job_by_id(str(selected_job_id))
+                    if not job:
+                        return _build_response(
+                            "공고 정보를 찾을 수 없어요 😥\n공고 원문을 직접 확인해 주세요.", []
+                        )
+                    guide_text = await get_apply_guide(job)
+                    return _build_response(guide_text, [])
+                if stripped == "괜찮아요":
+                    return _build_response("필요하시면 언제든 말씀해 주세요 😊", [])
                 # 만약 완료 상태에서 수정 요구를 보냈다면 편집 상태로 자동 전환하여 수정 진행
-                if len(stripped) > 0 and stripped not in ["완료", "자소서 보여줘", "저장된 자소서"]:
+                if len(stripped) > 0 and stripped not in ["완료", "자소서 보여줘", "저장된 자소서", "네, 알려주세요", "괜찮아요"]:
                     _update_resume_status(user_id, "editing")
                     return ResumeRevisionTask(
                         user_id=user_id,
@@ -403,8 +421,8 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                         user_data=dict(user),
                     )
                 return _build_response(
-                    "자소서가 완성됐어요! 🎉\n'자소서 보여줘'로 언제든 확인하세요 😊",
-                    ["📋 기존 자소서 보기", "✨ 새로 작성하기"],
+                    "자소서가 완성됐어요! 🎉\n이 공고에 어떻게 지원하는지 안내해드릴까요?",
+                    ["네, 알려주세요", "괜찮아요"],
                 )
 
         # 신규 사용자: DB에 없으면 생성 후 환영 메시지 + 첫 질문
