@@ -22,17 +22,26 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     input_clean = user_message = user_input.strip().lower()
 
     # 2. 온보딩 진행 체크 (Smart Bypass 예외)
-    # - 만약 사용자가 현재 9단계 자소서 온보딩 문답을 진행 중(step 0~8)인 상태라면,
+    # - 만약 사용자가 현재 9단계 자소서 온보딩 문답을 진행 중(step 0~8)인 상태거나,
+    # - 자소서 작성이 완료/수정 중인 상태(generated, reviewed, editing, done)라면,
     # - 흐름을 방해하지 않고 자소서 작성 노드(resume_gen)로 강제 고정합니다.
-    # - 단! 온보딩 중이라도 "검증", "피드백", "평가" 등의 명시적 키워드가 있는 경우는 온보딩 루프를 탈출하도록 예외 처리합니다.
+    # - 단! "처음부터" 초기화 키워드나 완료 상태(done)에서 완전히 다른 직무 검색/안내 등으로 빠져나갈 때는 제외합니다.
     try:
         profile = get_user_profile(user_id)
         if profile is not None:
             step = profile.get("step", 0)
-            # 온보딩 중간 단계인 경우 무조건 자소서 온보딩으로 강제 라우팅
-            if 0 <= step < 9 and not any(k in input_clean for k in ["검증", "평가", "첨삭", "피드백", "판별"]):
-                print(f"[Intent] 온보딩 진행 유저 확인 (현재 step: {step}) → 자소서 루프 강제 라우팅")
-                return {"intent": "resume_gen"}
+            resume_status = profile.get("resume_status", "none")
+            
+            is_onboarding = (0 <= step < 9)
+            is_resume_active = (resume_status in ["generated", "reviewed", "editing", "done"])
+            
+            if (is_onboarding or is_resume_active) and not any(k in input_clean for k in ["처음부터", "초기화", "다시 시작"]):
+                # 완료(done) 상태에서 사용자가 다른 기능(일자리 검색 등)을 요구하는 경우는 자연스러운 탈출 허용
+                if resume_status == "done" and any(k in input_clean for k in ["일자리", "알바", "취업", "구인", "공고", "채용", "추천"]):
+                    pass
+                else:
+                    print(f"[Intent] 자소서 흐름 유저 확인 (step: {step}, status: {resume_status}) → 자소서 루프 강제 라우팅")
+                    return {"intent": "resume_gen"}
     except Exception as e:
         print(f"[Intent Warning] 온보딩 사전 확인 실패: {e}")
 
