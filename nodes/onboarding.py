@@ -335,91 +335,56 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
         if user is not None and user.get("resume_status", "none") != "none":
             resume_status = user["resume_status"]
 
-            if resume_status == "generated":
-                if stripped == "네, 첨삭해주세요":
-                    saved = _get_resume(user_id)
-                    if saved is None:
-                        return _build_response(
-                            "저장된 자소서가 없어요. 먼저 자소서를 작성해주세요 😊", []
-                        )
-                    _update_resume_status(user_id, "reviewed")
-                    return ResumeReviewTask(
-                        user_id=user_id,
-                        immediate_message="자소서를 첨삭 중이에요. 잠시만 기다려주세요 ✍️",
-                        resume_text=saved["content"],
-                        desired_job=saved.get("desired_job", ""),
-                    )
-                if stripped == "괜찮아요":
-                    _update_resume_status(user_id, "editing")
-                    return _build_response(
-                        "수정하고 싶은 부분이 있으면 말씀해 주세요 😊\n"
-                        "예) '지원동기를 더 구체적으로 써줘'\n"
-                        "    '성장과정에 책임감 부분 강조해줘'\n"
-                        "    '전체적으로 더 짧게 써줘'\n"
-                        "만족하시면 아래 버튼을 눌러주세요.",
-                        ["완료"],
-                    )
-                return _build_response(
-                    "첨삭해드릴까요? 😊", ["네, 첨삭해주세요", "괜찮아요"]
-                )
-
-            if resume_status in ("reviewed", "editing"):
-                if stripped == "완료":
-                    _update_resume_status(user_id, "done")
-                    return _build_response(
-                        "자소서가 완성됐어요! 🎉\n이 공고에 어떻게 지원하는지 안내해드릴까요?",
-                        ["네, 알려주세요", "괜찮아요"],
-                    )
+            # 저장된 자소서 조회 요청
+            if stripped in ("자소서 보여줘", "저장된 자소서"):
                 saved = _get_resume(user_id)
                 if saved is None:
-                    return _build_response(
-                        "저장된 자소서가 없어요. 먼저 자소서를 작성해주세요 😊", []
-                    )
-                revision_count = user.get("revision_count", 0)
-                if revision_count >= 5:
-                    return _build_response(
-                        "수정은 최대 5번까지 가능해요.\n새로 작성하시려면 '처음부터'를 입력해 주세요 😊",
-                        [],
-                    )
-                return ResumeRevisionTask(
+                    return _build_response("아직 작성된 자소서가 없어요. 자소서를 먼저 작성해주세요 😊", [])
+                return ResumeTask(
                     user_id=user_id,
-                    immediate_message="자소서를 수정 중이에요. 잠시만 기다려주세요 ✍️",
-                    existing_content=saved["content"],
-                    user_request=stripped,
-                    revision_count=revision_count,
-                    desired_job=saved.get("desired_job", ""),
-                    user_data=dict(user),
+                    immediate_message="저장된 자소서를 불러오고 있어요 📋",
+                    sections=resume.split_resume(saved["content"]),
                 )
 
             if resume_status == "done":
                 if stripped == "네, 알려주세요":
                     profile = db_ops.get_user_profile(user_id) or {}
                     selected_job_id = profile.get("selected_job_id")
+                    
+                    # 방어 코드: selected_job_id가 없는 테스트 환경일 때 범용 예시 가이드 제공
                     if not selected_job_id:
-                        return _build_response(
-                            "공고 정보를 찾을 수 없어요 😥\n공고 원문을 직접 확인해 주세요.", []
+                        dummy_guide = (
+                            "📋 일반적인 구직 지원 방법 안내\n\n"
+                            "[지원 방식] 워크넷 온라인 입사지원 / 이메일 접수\n\n"
+                            "1단계. 먼저 작성된 자기소개서 본문을 길게 눌러 복사해 둡니다.\n"
+                            "2단계. 워크넷(www.work.go.kr)에 접속 후 개인회원으로 로그인합니다.\n"
+                            "3단계. 구직등록이 안 되어 있다면 '구직신청'을 먼저 진행합니다.\n"
+                            "4단계. 희망하시는 공고의 '워크넷 입사지원' 버튼을 누르고 복사해 둔 자소서를 첨부하여 접수합니다.\n\n"
+                            "💡 현재 테스트 계정에 선택된 구인 공고 ID가 없어서 일반적인 안내를 드렸습니다. "
+                            "실제 서비스에서는 상세 공고별 지원 방법이 맞춤형으로 안내됩니다! 😊"
                         )
+                        return _build_response(dummy_guide, ["📋 기존 자소서 보기", "✨ 새로 작성하기"])
+
                     job = db_ops.get_job_by_id(str(selected_job_id))
                     if not job:
-                        return _build_response(
-                            "공고 정보를 찾을 수 없어요 😥\n공고 원문을 직접 확인해 주세요.", []
+                        # 공고 정보가 DB에 존재하지 않을 때의 방어
+                        dummy_guide = (
+                            "📋 일반적인 구직 지원 방법 안내\n\n"
+                            "[지원 방식] 워크넷 온라인 입사지원\n\n"
+                            "1단계. 작성된 자기소개서 본문을 길게 눌러 복사해 둡니다.\n"
+                            "2단계. 지원 공고 원문 링크로 이동합니다.\n"
+                            "3단계. 이력서와 복사한 자기소개서를 입력하여 온라인 접수를 완료합니다.\n\n"
+                            "💡 공고의 상세 조회가 어렵거나 마감된 공고일 수 있어 기본 안내를 드렸습니다. 😊"
                         )
+                        return _build_response(dummy_guide, ["📋 기존 자소서 보기", "✨ 새로 작성하기"])
+                        
                     guide_text = await get_apply_guide(job)
-                    return _build_response(guide_text, [])
+                    return _build_response(guide_text, ["📋 기존 자소서 보기", "✨ 새로 작성하기"])
+
                 if stripped == "괜찮아요":
-                    return _build_response("필요하시면 언제든 말씀해 주세요 😊", [])
-                # 만약 완료 상태에서 수정 요구를 보냈다면 편집 상태로 자동 전환하여 수정 진행
-                if len(stripped) > 0 and stripped not in ["완료", "자소서 보여줘", "저장된 자소서", "네, 알려주세요", "괜찮아요"]:
-                    _update_resume_status(user_id, "editing")
-                    return ResumeRevisionTask(
-                        user_id=user_id,
-                        immediate_message="자소서를 다시 수정 중이에요. 잠시만 기다려주세요 ✍️",
-                        existing_content=saved_resume["content"] if saved_resume else "",
-                        user_request=stripped,
-                        revision_count=user.get("revision_count", 0),
-                        desired_job=saved_resume.get("desired_job", "") if saved_resume else "",
-                        user_data=dict(user),
-                    )
+                    return _build_response("필요하시면 언제든 말씀해 주세요 😊", ["📋 기존 자소서 보기", "✨ 새로 작성하기"])
+
+                # 완료 상태에서 다른 텍스트를 입력했을 때는 수정 모드로 가지 않고 완료 상태용 웰컴 퀵버튼 반환
                 return _build_response(
                     "자소서가 완성됐어요! 🎉\n이 공고에 어떻게 지원하는지 안내해드릴까요?",
                     ["네, 알려주세요", "괜찮아요"],
