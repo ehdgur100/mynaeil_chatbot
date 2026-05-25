@@ -9,15 +9,16 @@ from database import supabase
 
 async def recommend_jobs_fallback_local(user_embedding: list, limit: int = 5):
     """
-    Supabase RPC 호출 실패 시 로컬에서 jobs 및 job_seoul_50 테이블의 임베딩 유사도를 계산하여
+    Supabase RPC 호출 실패 시 로컬에서 jobs, jobs3, job_seoul_50 테이블의 임베딩 유사도를 계산하여
     상위 공고를 추천하는 robust fallback 함수.
     """
-    tables = ["jobs", "job_seoul_50"]
+    tables = ["jobs", "jobs3", "job_seoul_50"]
     combined_jobs = []
     
     for table in tables:
         try:
-            res = supabase.table(table).select("*").not_.is_("embedding", "null").limit(50).execute()
+            # 3개 테이블이므로 각각 limit을 35로 설정하여 총 100개 내외의 데이터를 유사도 비교합니다.
+            res = supabase.table(table).select("*").not_.is_("embedding", "null").limit(35).execute()
             for row in res.data:
                 row["_source_table"] = table
                 # 컬럼명이 다른 부분을 통합 매칭에 호환되도록 표준화

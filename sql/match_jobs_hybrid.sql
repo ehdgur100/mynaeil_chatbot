@@ -1,5 +1,5 @@
 -- Supabase SQL Editor에서 실행하여 match_jobs_hybrid 함수를 정상 작동하도록 복구/재생성하는 SQL 스크립트입니다.
--- 이 함수는 jobs와 job_seoul_50 테이블의 공고 데이터를 통합하여 하이브리드 추천을 지원합니다.
+-- 이 함수는 jobs, jobs3, job_seoul_50 3개 테이블의 공고 데이터를 통합하여 하이브리드 추천을 지원합니다.
 -- j.id 와 리턴 테이블 정의의 id 명칭이 충돌하는 모호성 에러(column reference "id" is ambiguous)를 방지하기 위해 
 -- #variable_conflict use_column 지시어를 지정하고 c.id 와 c.embedding 등을 명시적으로 타겟팅합니다.
 
@@ -26,6 +26,7 @@ AS $$
 BEGIN
   RETURN QUERY
   WITH combined_jobs AS (
+    -- A. jobs 테이블
     SELECT
       j.id,
       j.title,
@@ -40,7 +41,24 @@ BEGIN
     WHERE j.embedding IS NOT NULL
     
     UNION ALL
+
+    -- B. jobs3 테이블
+    SELECT
+      j3.id,
+      j3.title,
+      j3.company,
+      j3.content,
+      j3.url,
+      j3.location,
+      j3.salary,
+      j3.deadline::text AS deadline,
+      j3.embedding
+    FROM public.jobs3 j3
+    WHERE j3.embedding IS NOT NULL
     
+    UNION ALL
+    
+    -- C. job_seoul_50 테이블
     SELECT
       s.id,
       s.title,
