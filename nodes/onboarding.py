@@ -438,25 +438,12 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
             _save_answer(user_id, field, stripped, 6)
             _update_resume_status(user_id, "jobs_recommended")
             
-            profile = _get_user(user_id) or {}
-            search_keyword = profile.get("desired_job") or "시니어"
-            search_location = profile.get("location") or "서울"
-            
-            from database.operations import get_jobs_from_db
-            from nodes.job import content_based_filtering
+            # 단일 추천 엔진(recommend.py)을 동일하게 사용하도록 통합
+            from data_pipeline import recommend
             
             try:
-                db_jobs = get_jobs_from_db(search_keyword, search_location, limit=10)
-                seen_titles = set()
-                all_jobs = []
-                for job in db_jobs:
-                    t = job.get("title")
-                    if t not in seen_titles:
-                        seen_titles.add(t)
-                        if "job_category" not in job:
-                            job["job_category"] = search_keyword
-                        all_jobs.append(job)
-                recommended = content_based_filtering(profile, all_jobs, top_n=3)
+                # 사용자의 프로필 벡터와 3개 테이블 전체 공고 간 하이브리드 매칭 (Top 3개)
+                recommended = await recommend.recommend_jobs_for_user(user_id, limit=3)
             except Exception as e:
                 print(f"[Onboarding Job Recommendation Error] {e}")
                 recommended = []
@@ -465,15 +452,21 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
             if recommended:
                 job_list_str = ""
                 for i, job in enumerate(recommended):
-                    raw_url = job.get('url') or ""
+                    raw_url = job.get('url') or job.get('source_url') or ""
                     # 카카오톡 링크 끊김 방지를 위해 URL의 한글 및 공백 인코딩 적용
                     encoded_url = urllib.parse.quote(raw_url, safe=":/?=&") if raw_url else "https://www.work.go.kr"
                     
+                    # 각 일자리 테이블마다 컬럼명이 다를 수 있으므로 안전하게 get() 및 보정 적용
+                    title = job.get("title") or job.get("job_title") or "제목 없음"
+                    company = job.get("company") or job.get("company_name") or job.get("company_or_org") or "기업명 비공개"
+                    location = job.get("location") or job.get("event_location") or "지역 미상"
+                    salary = job.get("salary") or job.get("pay_text") or "협의"
+                    
                     job_list_str += (
-                        f"📌 {i+1}. {job.get('title')}\n"
-                        f"  - 업체명: {job.get('company') or '기업명 비공개'}\n"
-                        f"  - 지역: {job.get('location') or '지역 미상'}\n"
-                        f"  - 급여: {job.get('salary') or '협의'}\n"
+                        f"📌 {i+1}. {title}\n"
+                        f"  - 업체명: {company}\n"
+                        f"  - 지역: {location}\n"
+                        f"  - 급여: {salary}\n"
                         f"  - 공고링크: {encoded_url}\n\n"
                     )
                 msg = (
