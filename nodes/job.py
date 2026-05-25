@@ -21,6 +21,9 @@ def content_based_filtering(user_profile: Dict[str, Any], jobs: List[Dict[str, A
             user_words.extend([w.strip() for w in val.replace(",", " ").split() if w.strip()])
 
     scored_jobs = []
+    desired_job = user_profile.get("desired_job") or ""
+    desired_job_tokens = [w.strip() for w in desired_job.replace(",", " ").split() if w.strip()]
+
     for job in jobs:
         # 공고 텍스트 병합 (제목 + 내용 + 카테고리)
         job_text = f"{job.get('title', '')} {job.get('content', '')} {job.get('job_category', '')}"
@@ -29,8 +32,8 @@ def content_based_filtering(user_profile: Dict[str, Any], jobs: List[Dict[str, A
         score = 0.0
         for word in user_words:
             if word in job_text:
-                # 희망 직무 매칭 시 가중치 부여
-                if word == user_profile.get("desired_job"):
+                # 희망 직무 토큰 매칭 시 가중치 부여
+                if word in desired_job_tokens:
                     score += 5.0
                 else:
                     score += 1.0
@@ -118,16 +121,21 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
     recommended = content_based_filtering(profile, all_jobs, top_n=3)
 
     # 5. 출력 메시지 조립
+    import urllib.parse
     if recommended:
         job_list_str = ""
         for i, job in enumerate(recommended):
+            raw_url = job.get('url') or ""
+            # 카카오톡 링크 끊김 방지를 위해 URL의 한글 및 공백 인코딩 적용
+            encoded_url = urllib.parse.quote(raw_url, safe=":/?=&") if raw_url else "https://www.work.go.kr"
+            
             job_list_str += (
                 f"📌 {i+1}. {job.get('title')}\n"
-                f"  - 업체명: {job.get('company')}\n"
-                f"  - 지역: {job.get('location')}\n"
-                f"  - 급여: {job.get('salary', '협의')}\n"
-                f"  - 기한: {job.get('deadline', '채용시까지')}\n"
-                f"  - 공고링크: {job.get('url')}\n\n"
+                f"  - 업체명: {job.get('company') or '기업명 비공개'}\n"
+                f"  - 지역: {job.get('location') or '지역 미상'}\n"
+                f"  - 급여: {job.get('salary') or '협의'}\n"
+                f"  - 기한: {job.get('deadline') or '채용시까지'}\n"
+                f"  - 공고링크: {encoded_url}\n\n"
             )
         
         ai_response = (
