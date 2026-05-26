@@ -158,8 +158,8 @@ def _build_response(text: str, quick_replies: list) -> dict:
     }
     if quick_replies:
         resp["template"]["quickReplies"] = [
-            {"action": "message", "label": lb, "messageText": lb}
-            for lb in quick_replies
+            qr if isinstance(qr, dict) else {"action": "message", "label": qr, "messageText": qr}
+            for qr in quick_replies
         ]
     return resp
 
@@ -203,6 +203,7 @@ def _reset_user(user_id: str) -> None:
             "hardship": None,
             "resume_status": "none",
             "revision_count": 0,
+            "selected_job_id": None,
         }
     ).execute()
 
@@ -328,6 +329,12 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
 
         # 추천 공고 직후의 입력 이벤트 분기 처리 (step 6 진입 유도)
         if user is not None and user.get("resume_status") == "jobs_recommended":
+            if stripped.startswith("공고선택:"):
+                job_id = stripped.split(":", 1)[1]
+                try:
+                    db_ops.save_selected_job_id(user_id, job_id)
+                except Exception as e:
+                    print(f"[selected_job_id 저장 실패] {e}")
             _update_resume_status(user_id, "none")
             return _build_response(STEPS[6]["question"], STEPS[6]["quick_replies"])
 
@@ -447,21 +454,17 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
             except Exception as e:
                 print(f"[Onboarding Job Recommendation Error] {e}")
                 recommended = []
-                
+
             import urllib.parse
             if recommended:
                 job_list_str = ""
                 for i, job in enumerate(recommended):
                     raw_url = job.get('url') or job.get('source_url') or ""
-                    # 카카오톡 링크 끊김 방지를 위해 URL의 한글 및 공백 인코딩 적용
                     encoded_url = urllib.parse.quote(raw_url, safe=":/?=&") if raw_url else "https://www.work.go.kr"
-                    
-                    # 각 일자리 테이블마다 컬럼명이 다를 수 있으므로 안전하게 get() 및 보정 적용
                     title = job.get("title") or job.get("job_title") or "제목 없음"
                     company = job.get("company") or job.get("company_name") or job.get("company_or_org") or "기업명 비공개"
                     location = job.get("location") or job.get("event_location") or "지역 미상"
                     salary = job.get("salary") or job.get("pay_text") or "협의"
-                    
                     job_list_str += (
                         f"📌 {i+1}. {title}\n"
                         f"  - 업체명: {company}\n"
@@ -472,16 +475,20 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 msg = (
                     f"🔍 입력해주신 정보를 바탕으로 찾은 맞춤 일자리예요! 💼\n\n"
                     f"{job_list_str.strip()}\n\n"
-                    f"이 일자리에 바로 지원하실 수 있도록 맞춤형 자기소개서를 완성해 드릴까요? 😊\n"
-                    f"아래 버튼을 누르시면 남은 3가지 질문을 이어갈게요!"
+                    f"지원하고 싶은 공고를 선택하시면 맞춤 자기소개서를 완성해 드려요! 😊"
                 )
+                job_buttons = [
+                    {"action": "message", "label": f"📌 {i+1}번 공고 선택", "messageText": f"공고선택:{job.get('id')}"}
+                    for i, job in enumerate(recommended) if job.get("id")
+                ]
+                job_buttons.append({"action": "message", "label": "처음부터", "messageText": "처음부터"})
+                return _build_response(msg, job_buttons)
             else:
                 msg = (
                     f"입력해주신 정보를 기반으로 주변 일자리를 열심히 조회해보았으나, 현재 딱 맞는 공고가 조회되지 않네요 😥\n\n"
                     f"그래도 다른 직무나 공고에 언제든 지원할 수 있도록 계속해서 자기소개서를 작성해 드릴까요? 😊"
                 )
-                
-            return _build_response(msg, ["이어서 자소서 작성하기", "처음부터"])
+                return _build_response(msg, ["이어서 자소서 작성하기", "처음부터"])
 
         _save_answer(user_id, field, stripped, step + 1)
 
