@@ -63,16 +63,12 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     if any(k in input_clean for k in ["일자리", "알바", "취업", "구인", "공고", "일할", "채용", "추천"]):
         return {"intent": "job_search"}
         
-    # 면접 및 구직 가이드 팁 요청 키워드
-    if any(k in input_clean for k in ["가이드", "방법", "준비", "팁", "어떻게"]):
-        return {"intent": "apply_guide"}
-
     # 4. LLM 기반 의도 분류 (하드코딩 키워드로 걸러지지 않는 애매한 일상 발화 분류)
     # - 빠르고 비용이 저렴한 gpt-4o-mini(llm_fast) 모델을 활용하여 분류합니다.
     system_prompt = (
         "당신은 중장년층 구직자 지원 시스템의 의도 분석가입니다.\n"
         "아래 사용자 발화를 분류하여 다음 카테고리 단어 중 '오직 한 단어'로만 답변하십시오:\n"
-        "(resume_gen, resume_verify, job_search, apply_guide, basic_chat)\n"
+        "(resume_gen, resume_verify, job_search, basic_chat)\n"
         "다른 서술어나 기호, 백틱(```) 등은 포함하지 마십시오."
     )
     

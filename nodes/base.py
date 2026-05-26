@@ -5,7 +5,6 @@ class IntentEnum(str, Enum):
     resume_gen = "resume_gen"      # 자소서 생성 및 온보딩
     resume_verify = "resume_verify"  # [파트 2] 자소서 RAG 검증
     job_search = "job_search"      # 일자리 추천
-    apply_guide = "apply_guide"    # 상세 지원 가이드
     basic_chat = "basic_chat"
 
 # ========================================================
