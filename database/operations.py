@@ -1,5 +1,6 @@
 from typing import Optional
 from database.connection import supabase
+from database.vector_search import embeddings
 
 def get_user_profile(user_id: str) -> Optional[dict]:
     """사용자의 온보딩 정보를 조회합니다."""
@@ -128,4 +129,47 @@ def get_courses_from_db(subject: str, location: str, limit: int = 5) -> list[dic
         return result.data if result.data else []
     except Exception as e:
         print(f"[DB Course Search Error] {e}")
+        return []
+
+def search_education(keyword: str, location: str, limit: int = 5) -> list[dict]:
+    """education 테이블에서 벡터 의미 검색(Vector Search)을 통해 교육 과정을 추천합니다."""
+    if supabase is None:
+        return []
+    try:
+        # 지역 필터링 문자열 정제
+        loc_clean = ""
+        if location and location not in ("전국", "상관없음"):
+            loc_clean = location.replace("서울 ", "").replace("경기 ", "").strip()
+
+        # 키워드가 있으면 벡터 임베딩 후 유사도 검색 (match_education RPC 호출)
+        if keyword:
+            try:
+                query_vector = embeddings.embed_query(keyword)
+                res = supabase.rpc(
+                    'match_education', 
+                    {
+                        'query_embedding': query_vector, 
+                        'match_threshold': 0.60, # 최소 60% 이상 유사한 것만 (너무 높으면 안 나올 수 있음)
+                        'match_count': limit,
+                        'location_filter': loc_clean
+                    }
+                ).execute()
+                return res.data if res.data else []
+            except Exception as e:
+                print(f"[Vector Search Failed, fallback to Text] {e}")
+                # 만약 RPC가 아직 생성 안됐거나 에러 시 기존 텍스트 검색으로 폴백
+                pass
+
+        # 키워드가 없거나 벡터 검색 실패 시 일반 텍스트 검색으로 폴백
+        query = supabase.table("education").select("*")
+        if keyword:
+            query = query.ilike("title", f"%{keyword}%")
+        if loc_clean:
+            query = query.ilike("education_location", f"%{loc_clean}%")
+            
+        result = query.limit(limit).execute()
+        return result.data if result.data else []
+        
+    except Exception as e:
+        print(f"[DB Education Search Error] {e}")
         return []

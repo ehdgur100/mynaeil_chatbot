@@ -10,7 +10,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 import config
-from database import supabase
+from database.connection import supabase
 
 
 def run_seoul_crawler():

@@ -15,6 +15,7 @@ def route_intent(state: AgentState) -> str:
         "resume_gen",       # 자기소개서 작성 및 온보딩 질문
         "resume_verify",    # 자소서 유튜브 RAG 검증
         "job_search",       # 일자리 검색 및 추천
+        "edu_recommend",    # 국비지원 교육 추천
         "basic_chat"        # 일반 인사 및 대화 (기본 대기실)
     ]
     
@@ -45,6 +46,7 @@ workflow.add_node("analyze_intent", nodes.analyze_intent)
 workflow.add_node("resume_gen", nodes.resume_gen)         # 자소서 작성 및 질문 수집방
 workflow.add_node("resume_verify", nodes.resume_verify)   # 유튜브 팁 기반 자소서 검증방
 workflow.add_node("job_search", nodes.job_search)         # 맞춤형 일자리 찾기방
+workflow.add_node("edu_recommend", nodes.edu_recommend)   # 교육 추천방
 
 workflow.add_node("basic_chat", nodes.basic_chat)         # 일상 대화 및 안내 안내방
 
@@ -65,6 +67,7 @@ workflow.add_conditional_edges(
 )
 workflow.add_edge("resume_verify", END)
 workflow.add_edge("job_search", END)
+workflow.add_edge("edu_recommend", END)
 workflow.add_edge("basic_chat", END)
 
 # 4. 대화 기록을 기억할 메모리 장치(체크포인터)를 활성화합니다.

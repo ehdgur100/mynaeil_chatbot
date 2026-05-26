@@ -15,7 +15,7 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
-from database import supabase
+from database.connection import supabase
 
 def crawl_and_insert_jobs_massive(target_count=2000):
     """

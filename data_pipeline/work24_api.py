@@ -17,7 +17,7 @@ if parent_dir not in sys.path:
 
 # 🌟 [수정] 파일 전체를 import 합니다. (클래스가 없기 때문)
 import config
-from database import supabase
+from database.connection import supabase
 
 
 def fetch_and_insert_work24_job(wanted_auth_no: str):
