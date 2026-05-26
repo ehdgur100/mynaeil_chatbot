@@ -53,6 +53,12 @@ def get_resume(user_id: str) -> Optional[dict]:
     result = supabase.table("resumes").select("*").eq("user_id", user_id).execute()
     return result.data[0] if result.data else None
 
+def save_selected_job_id(user_id: str, job_id: str) -> None:
+    """사용자가 추천받은 공고 중 대표 공고 ID를 저장합니다."""
+    if supabase is None:
+        raise RuntimeError("Supabase가 연결되지 않았습니다.")
+    supabase.table("users").update({"selected_job_id": job_id}).eq("user_id", user_id).execute()
+
 def get_job_by_id(job_id: str) -> Optional[dict]:
     """jobs3 → jobs → job_seoul_50 순서로 ID로 공고를 조회하고 정규화된 dict를 반환합니다."""
     if supabase is None:
