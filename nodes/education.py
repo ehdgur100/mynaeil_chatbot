@@ -1,150 +1,373 @@
-import json
+from __future__ import annotations
+
 import re
-from typing import Dict, Any
-from state import AgentState
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from nodes.base import llm_fast, get_content
+from datetime import date, datetime
+from typing import Any, Dict
+
+from langchain_core.messages import AIMessage
+
+from database.connection import supabase
 import database.operations as db_ops
-import config
+from state import AgentState
+
+ACTIVE_STATUSES = ("모집중", "모집예정")
+CATEGORIES = ("취업훈련", "AI디지털교육", "50플러스센터교육")
+STOP_TERMS = {
+    "교육",
+    "추천",
+    "추천해줘",
+    "과정",
+    "강의",
+    "강좌",
+    "근처",
+    "관련",
+    "있어",
+    "알려줘",
+    "찾아줘",
+    "서울",
+}
+
+DIGITAL_KEYWORDS = (
+    "디지털",
+    "ai",
+    "인공지능",
+    "스마트폰",
+    "컴퓨터",
+    "온라인",
+    "엑셀",
+    "파워포인트",
+    "한글",
+    "문서",
+    "데이터",
+    "sns",
+    "유튜브",
+    "키오스크",
+)
+
+BEGINNER_KEYWORDS = ("초보", "기초", "입문", "처음", "기본")
+ADVANCED_KEYWORDS = ("실무", "심화", "자격", "프로젝트", "활용", "전문")
+
+
+def _clean(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _compact(value: Any) -> str:
+    return re.sub(r"\s+", "", _clean(value).lower())
+
+
+def _split_terms(*values: Any) -> list[str]:
+    text = " ".join(_clean(value) for value in values if value)
+    terms = re.split(r"[^0-9A-Za-z가-힣]+", text)
+    return [
+        term.lower()
+        for term in terms
+        if len(term) >= 2 and term.lower() not in STOP_TERMS
+    ]
+
+
+def _location_terms(location: str) -> list[str]:
+    raw_terms = _split_terms(location)
+    terms: list[str] = []
+    for term in raw_terms:
+        normalized = (
+            term.replace("서울시", "")
+            .replace("서울", "")
+            .replace("특별시", "")
+            .replace("거주", "")
+        )
+        if normalized.endswith("구"):
+            normalized = normalized[:-1]
+        if normalized and normalized not in ("전국", "경기"):
+            terms.append(normalized)
+    return terms
+
+
+def _date_key(value: Any) -> datetime:
+    text = _clean(value)
+    for fmt in ("%Y-%m-%d", "%Y%m%d%H", "%Y%m%d", "%y%m%d"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return datetime.max
+
+
+def _date_value(value: Any) -> date | None:
+    parsed = _date_key(value)
+    if parsed == datetime.max:
+        return None
+    return parsed.date()
+
+
+def _is_expired(row: dict[str, Any], today: date | None = None) -> bool:
+    apply_end = _date_value(row.get("apply_end"))
+    if apply_end is None:
+        return False
+    return apply_end < (today or date.today())
+
+
+def _row_text(row: dict[str, Any]) -> str:
+    fields = (
+        "title",
+        "category",
+        "provider",
+        "business_type_name",
+        "occupation_name",
+        "education_location",
+        "content",
+    )
+    return " ".join(_clean(row.get(field)) for field in fields).lower()
+
+
+def _score_row(
+    row: dict[str, Any],
+    desired_job: str,
+    digital_level: str,
+    location: str,
+    user_input: str,
+) -> tuple[int, list[str]]:
+    text = _row_text(row)
+    compact_text = _compact(text)
+    reasons: list[str] = []
+    score = 0
+
+    desired_terms = _split_terms(desired_job, user_input)
+    matched_job_terms = [
+        term for term in desired_terms if term in text or term in compact_text
+    ]
+    if matched_job_terms:
+        score += min(len(matched_job_terms), 3) * 4
+        reasons.append(
+            f"희망직무 관련 키워드({', '.join(matched_job_terms[:3])})가 교육 내용과 맞습니다"
+        )
+
+    digital_terms = [
+        term
+        for term in _split_terms(digital_level, user_input)
+        if term in DIGITAL_KEYWORDS
+        or any(keyword in term for keyword in DIGITAL_KEYWORDS)
+    ]
+    matched_digital_terms = [
+        term for term in digital_terms if term in text or term in compact_text
+    ]
+    if matched_digital_terms:
+        score += min(len(matched_digital_terms), 3) * 3
+        reasons.append(
+            f"디지털역량 키워드({', '.join(matched_digital_terms[:3])})와 연결됩니다"
+        )
+
+    if any(
+        keyword in _compact(digital_level + " " + user_input)
+        for keyword in BEGINNER_KEYWORDS
+    ):
+        if any(keyword in compact_text for keyword in BEGINNER_KEYWORDS):
+            score += 2
+            reasons.append("입문/기초 수준에 맞는 과정입니다")
+
+    if any(
+        keyword in _compact(digital_level + " " + user_input)
+        for keyword in ADVANCED_KEYWORDS
+    ):
+        if any(keyword in compact_text for keyword in ADVANCED_KEYWORDS):
+            score += 2
+            reasons.append("실무/활용 수준을 높이는 과정입니다")
+
+    location_matches = [
+        term
+        for term in _location_terms(location)
+        if term and (term in compact_text or f"{term}센터" in compact_text)
+    ]
+    if location_matches:
+        score += 3
+        reasons.append(
+            f"거주지역({', '.join(location_matches[:2])})과 가까운 기관입니다"
+        )
+
+    if not reasons:
+        reasons.append("현재 신청 가능한 교육 중 프로필 조건과 비교해 추천했습니다")
+
+    return score, reasons
+
+
+def _fetch_active_educations(limit: int = 600) -> list[dict[str, Any]]:
+    if supabase is None:
+        return []
+    result = (
+        supabase.table("education")
+        .select(
+            "title,category,recruitment_status,provider,education_location,"
+            "apply_start,apply_end,application_url,occupation_name,content,"
+            "business_type_name"
+        )
+        .in_("recruitment_status", list(ACTIVE_STATUSES))
+        .limit(limit)
+        .execute()
+    )
+    rows = result.data or []
+    return [
+        row
+        for row in rows
+        if row.get("category") in CATEGORIES and not _is_expired(row)
+    ]
+
+
+def _date_for_sort(row: dict[str, Any]) -> datetime:
+    if row.get("recruitment_status") == "모집중":
+        return _date_key(row.get("apply_end"))
+    return _date_key(row.get("apply_start"))
+
+
+def _format_date_label(row: dict[str, Any]) -> str:
+    if row.get("recruitment_status") == "모집중":
+        return f"신청마감일: {_clean(row.get('apply_end')) or '확인 필요'}"
+    return f"모집시작일: {_clean(row.get('apply_start')) or '확인 필요'}"
+
+
+def _recommend_educations(
+    rows: list[dict[str, Any]],
+    desired_job: str,
+    digital_level: str,
+    location: str,
+    user_input: str,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    rows = [row for row in rows if not _is_expired(row)]
+    scored: list[dict[str, Any]] = []
+    for row in rows:
+        score, reasons = _score_row(
+            row, desired_job, digital_level, location, user_input
+        )
+        if score <= 0:
+            continue
+        scored.append({**row, "_score": score, "_reasons": reasons})
+
+    if not scored:
+        scored = [
+            {
+                **row,
+                "_score": 0,
+                "_reasons": ["현재 모집 상태와 신청 가능성을 기준으로 추천했습니다"],
+            }
+            for row in rows
+        ]
+
+    ongoing = [row for row in scored if row.get("recruitment_status") == "모집중"]
+    pending = [row for row in scored if row.get("recruitment_status") == "모집예정"]
+
+    ongoing.sort(key=lambda row: (_date_for_sort(row), -row["_score"]))
+    pending.sort(key=lambda row: (_date_for_sort(row), -row["_score"]))
+
+    recommendations = ongoing[:limit]
+    if len(recommendations) < limit:
+        recommendations.extend(pending[: limit - len(recommendations)])
+    return recommendations
+
+
+def _build_response_text(
+    recommendations: list[dict[str, Any]],
+    desired_job: str,
+    digital_level: str,
+    location: str,
+) -> str:
+    if not recommendations:
+        return (
+            "현재 모집중 또는 모집예정 상태의 맞춤 교육을 찾지 못했습니다.\n"
+            "희망직무, 디지털역량, 거주지역을 조금 더 구체적으로 알려주시면 다시 찾아볼게요."
+        )
+
+    header = (
+        "모집중 교육부터 추천드릴게요.\n"
+        f"- 희망직무: {desired_job or '미입력'}\n"
+        f"- 디지털역량: {digital_level or '미입력'}\n"
+        f"- 거주지역: {location or '미입력'}\n"
+    )
+
+    lines = [header]
+    for index, row in enumerate(recommendations[:3], start=1):
+        reasons = row.get("_reasons", ["조건과 관련 있는 교육입니다"])[0]
+        block = (
+            "\n"
+            f"{index}. {row.get('title')}\n"
+            f"- {row.get('category')} / {row.get('recruitment_status')}\n"
+            f"- 장소: {row.get('education_location') or row.get('provider') or '확인 필요'}\n"
+            f"- {_format_date_label(row)}\n"
+            f"- 이유: {reasons}\n"
+            f"- 링크: {row.get('application_url')}"
+        )
+        if len("\n".join(lines) + block) > 900:
+            break
+        lines.append(block)
+
+    if len(recommendations) > 0:
+        guide_note = (
+            "\n\n💡 위 과정 중 상세한 신청 방법 및 서류, 사전 준비 팁이 궁금하시다면 "
+            "아래의 **'[번호]번 교육 신청 가이드'** 버튼을 눌러보세요!"
+        )
+        if len("\n".join(lines) + guide_note) <= 1000:
+            lines.append(guide_note)
+
+    return "\n".join(lines)
+
 
 async def edu_recommend(state: AgentState) -> Dict[str, Any]:
-    """
-    [엔지니어 A 담당] 국민내일배움카드로 수강 가능한 교육 과정을 매칭하고 추천해주는 노드.
-    사용자와의 대화 문맥에서 희망 '교육 분야'와 '지역'을 파악한 후 Supabase education 테이블에서 검색합니다.
-    """
     print("[Node] edu_recommend 실행")
     user_id = state.get("user_id", "unknown")
     messages = state.get("messages", [])
-    
-    # 1. 최근 3개의 사용자 발화를 모아 대화 문맥 구성
-    recent_messages = [m for m in messages if isinstance(m, HumanMessage)][-3:]
-    chat_history = "\n".join([f"User: {m.content}" for m in recent_messages]) if recent_messages else ""
+    user_input = messages[-1].content if messages else ""
 
-    # 2. LLM을 사용하여 대화 내역에서 교육 키워드와 지역 추출
-    extract_prompt = (
-        "사용자의 최근 대화 내역을 분석하여, 사용자가 찾고 있는 '교육 분야(키워드)'와 '희망 지역'을 JSON으로 추출하세요.\n"
-        "예시: '마포구 요양보호사 교육' -> {\"keyword\": \"요양보호사\", \"location\": \"마포구\"}\n"
-        "예시: '국비교육 추천' -> {\"keyword\": \"\", \"location\": \"\"}\n"
-        "아직 대화에서 명확히 언급되지 않은 항목은 빈 문자열(\"\")로 두세요.\n"
-        "반드시 JSON 형태로만 응답하고 백틱(```) 등은 포함하지 마십시오."
-    )
-    
+    profile = db_ops.get_user_profile(user_id) or {}
+    desired_job = _clean(profile.get("desired_job") or state.get("desired_job"))
+    digital_level = _clean(profile.get("digital_level") or profile.get("skills"))
+    location = _clean(profile.get("location") or state.get("location"))
+
     try:
-        response = await llm_fast.ainvoke([
-            SystemMessage(content=extract_prompt),
-            HumanMessage(content=chat_history)
-        ])
-        content_val = response.content
-        if isinstance(content_val, list):
-            content_str = "".join([c.get("text", "") if isinstance(c, dict) else str(c) for c in content_val])
-        else:
-            content_str = str(content_val)
+        rows = _fetch_active_educations()
+        recommendations = _recommend_educations(
+            rows=rows,
+            desired_job=desired_job,
+            digital_level=digital_level,
+            location=location,
+            user_input=user_input,
+            limit=3,
+        )
+        ai_response = _build_response_text(
+            recommendations, desired_job, digital_level, location
+        )
+    except Exception as exc:
+        print(f"[Education Recommend Error] {exc}")
+        ai_response = (
+            "교육 추천 정보를 불러오는 중 문제가 발생했습니다. "
+            "잠시 후 다시 시도해 주세요."
+        )
 
-        # JSON 텍스트 추출
-        cleaned = re.search(r'\{.*\}', content_str.strip(), re.DOTALL)
-        if cleaned:
-            extracted = json.loads(cleaned.group(0))
-        else:
-            extracted = {"keyword": "", "location": ""}
-    except Exception as e:
-        print(f"[Edu Keyword Extract Error] {e}")
-        extracted = {"keyword": "", "location": ""}
+    # 실제로 ai_response에 노출된 교육 번호(1~3번)를 파악하여 가이드 퀵리플라이를 동적으로 추가합니다.
+    quick_replies = []
+    shown_count = 0
+    for i in range(1, 4):
+        if f"\n{i}. " in ai_response or f"{i}. " in ai_response:
+            shown_count = i
 
-    keyword = extracted.get("keyword", "").strip()
-    location = extracted.get("location", "").strip()
+    for i in range(1, shown_count + 1):
+        quick_replies.append(f"{i}번 교육 신청 가이드")
 
-    # 3. 정보 부족 시 질문 던지기 (QnA 플로우)
-    if not keyword or not location:
-        if not keyword and not location:
-            ask_msg = "어떤 직무 분야의 교육을 원하시나요? (예: 바리스타, 컴퓨터 등)\n그리고 원하시는 수강 지역(시/구)도 함께 말씀해 주세요! 🏫"
-        elif not keyword:
-            ask_msg = f"지역은 '{location}'이시군요!\n어떤 분야의 교육을 받고 싶으신가요? (예: 요양보호사, 제과제빵 등)"
-        else:
-            ask_msg = f"'{keyword}' 교육을 찾으시는군요!\n원하시는 수강 지역(시/구)은 어디신가요?"
-            
-        kakao_resp = {
-            "version": "2.0",
-            "template": {
-                "outputs": [{"simpleText": {"text": ask_msg}}]
-            }
-        }
-        return {
-            "messages": [AIMessage(content=ask_msg)],
-            "kakao_response": kakao_resp,
-            "intent": "edu_recommend"  # 다음 턴에도 이 노드로 들어오게 유지
-        }
+    quick_replies.extend(
+        ["모집중 교육 더 보기", "모집예정 교육 보기", "다른 교육 찾기"]
+    )
 
-    # 4. 정보가 충분하면 Supabase education 테이블 검색
-    courses = db_ops.search_education(keyword, location, limit=5)
-
-    # 5. 카카오 캐러셀 응답 포맷팅
-    if courses:
-        items = []
-        for c in courses:
-            title = c.get('title') or "교육명 미상"
-            provider = c.get('provider') or "기관 미상"
-            edu_loc = c.get('education_location') or location
-            fee = c.get('fee_text') or "비용 정보 없음"
-            link = c.get('application_url') or c.get('source_url') or "https://www.hrd.go.kr"
-            
-            similarity = c.get('similarity')
-            
-            # 카드 설명란 텍스트 구성
-            desc = ""
-            if similarity is not None:
-                match_percent = int(similarity * 100)
-                desc += f"[💡매칭률: {match_percent}%]\n"
-            desc += f"🏢 기관: {provider}\n📍 장소: {edu_loc}\n💰 비용: {fee}"
-            
-            item = {
-                "title": title,
-                "description": desc,
-                "buttons": [
-                    {
-                        "action": "webLink",
-                        "label": "자세히 보기",
-                        "webLinkUrl": link
-                    }
-                ]
-            }
-            items.append(item)
-            
-        ai_response_text = f"요청하신 '{location}' 지역의 '{keyword}' 관련 훈련/교육 추천 목록입니다! 🎓\n자세히 보기를 클릭하시면 신청 페이지로 이동합니다."
-        kakao_resp = {
-            "version": "2.0",
-            "template": {
-                "outputs": [
-                    {"simpleText": {"text": ai_response_text}},
-                    {
-                        "carousel": {
-                            "type": "basicCard",
-                            "items": items
-                        }
-                    }
-                ],
-                "quickReplies": [
-                    {"action": "message", "label": "다른 교육 찾기", "messageText": "국비교육 추천"},
-                    {"action": "message", "label": "일자리 검색", "messageText": "일자리 검색"}
-                ]
-            }
-        }
-        ai_response = AIMessage(content=ai_response_text)
-    else:
-        ai_response_text = f"죄송합니다. 현재 '{location}' 지역에 '{keyword}' 관련 모집 중인 훈련/교육 과정이 없습니다. 😥\n다른 분야나 지역으로 다시 검색해 보시겠어요?"
-        ai_response = AIMessage(content=ai_response_text)
-        kakao_resp = {
-            "version": "2.0",
-            "template": {
-                "outputs": [{"simpleText": {"text": ai_response_text}}],
-                "quickReplies": [
-                    {"action": "message", "label": "다른 교육 찾기", "messageText": "국비교육 추천"},
-                    {"action": "message", "label": "자소서 작성", "messageText": "자소서 작성"}
-                ]
-            }
-        }
+    kakao_resp = {
+        "version": "2.0",
+        "template": {
+            "outputs": [{"simpleText": {"text": ai_response}}],
+            "quickReplies": [
+                {"action": "message", "label": label, "messageText": label}
+                for label in quick_replies
+            ],
+        },
+    }
 
     return {
         "messages": [ai_response],
         "kakao_response": kakao_resp,
-        "intent": "edu_recommend"
+        "intent": "edu_recommend",
     }
