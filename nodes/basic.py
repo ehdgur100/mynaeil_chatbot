@@ -16,21 +16,21 @@ async def basic_chat(state: AgentState) -> Dict[str, Any]:
     if any(k in user_input.lower() for k in GREETING_KEYWORDS):
         welcome_msg = (
             "안녕하세요! 😊 5060 신중년 재취업 동반자 '나의내일' 챗봇입니다.\n\n"
-            "저는 구직자 맞춤형 일자리 찾기와 자기소개서 완성을 도와드릴 수 있어요. 아래 중 원하시는 서비스를 선택해 주세요!\n\n"
-            "✍️ 내 경험을 담은 '자기소개서 작성'\n"
-            "🔍 내게 맞는 '일자리 검색'"
+            "원하시는 서비스를 아래에서 선택해 주세요!\n\n"
+            "🔍 내게 맞는 '공고 추천'\n"
+            "🎓 새로운 배움, '교육 추천'"
         )
-        quick_replies = ["자소서 작성", "일자리 검색"]
+        quick_replies = [
+            {"action": "message", "label": "공고 추천", "messageText": "[CMD]job_search"},
+            {"action": "message", "label": "교육 추천", "messageText": "[CMD]edu_recommend"}
+        ]
         return {
             "messages": [AIMessage(content=welcome_msg)],
             "kakao_response": {
                 "version": "2.0",
                 "template": {
                     "outputs": [{"simpleText": {"text": welcome_msg}}],
-                    "quickReplies": [
-                        {"action": "message", "label": label, "messageText": label}
-                        for label in quick_replies
-                    ]
+                    "quickReplies": quick_replies
                 }
             },
             "intent": "basic_chat"
@@ -39,7 +39,7 @@ async def basic_chat(state: AgentState) -> Dict[str, Any]:
     # 2. 캐시 룰에 걸리지 않는 범용 일상 대화는 llm_fast를 활용해 대답
     system_prompt = """당신은 5060세대 중장년층의 제2의 인생 설계를 돕는 따뜻하고 살가운 상담원입니다.
 사용자의 질문에 친절하게 2~3문장 이내로 답변하세요.
-지원되지 않는 복잡한 기술적 문제나 업무 처리에 대해서는 '나의내일'의 핵심 서비스(자소서 작성, 일자리 찾기)를 다시 안내하며 유도하세요.
+지원되지 않는 복잡한 기술적 문제나 업무 처리에 대해서는 '나의내일'의 핵심 서비스(공고 추천, 교육 추천)를 다시 안내하며 유도하세요.
 """
     
     try:
@@ -50,19 +50,19 @@ async def basic_chat(state: AgentState) -> Dict[str, Any]:
         ai_response = get_content(response)
     except Exception as e:
         print(f"[Basic Chat Error] {e}")
-        ai_response = "무슨 말씀인지 잘 이해하지 못했어요. 자소서 작성, 일자리 검색 중 어떤 걸 도와드릴까요?"
+        ai_response = "무슨 말씀인지 잘 이해하지 못했어요. 공고 추천, 교육 추천 중 어떤 걸 도와드릴까요?"
  
-    quick_replies = ["자소서 작성", "일자리 검색"]
+    quick_replies = [
+        {"action": "message", "label": "공고 추천", "messageText": "[CMD]job_search"},
+        {"action": "message", "label": "교육 추천", "messageText": "[CMD]edu_recommend"}
+    ]
     return {
         "messages": [AIMessage(content=ai_response)],
         "kakao_response": {
             "version": "2.0",
             "template": {
                 "outputs": [{"simpleText": {"text": ai_response}}],
-                "quickReplies": [
-                    {"action": "message", "label": label, "messageText": label}
-                    for label in quick_replies
-                ]
+                "quickReplies": quick_replies
             }
         },
         "intent": "basic_chat"

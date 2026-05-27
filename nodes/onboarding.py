@@ -511,8 +511,49 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
 async def resume_gen(state: dict) -> dict:
     user_id = state["user_id"]
     user_message = state["messages"][-1].content
+    selected_job = state.get("selected_job")
 
-    result = await handle_onboarding(user_id, user_message)
+    if selected_job:
+        user = _get_user(user_id)
+        if user is None:
+            _create_user(user_id)
+            user = _get_user(user_id)
+            
+        title = selected_job.get("title", "")
+        company = selected_job.get("company", "")
+        desired_job_str = f"{title} ({company})" if company else title
+
+        _save_answer(user_id, "desired_job", desired_job_str, user.get("step", 0))
+        
+        job_id = selected_job.get("id") or selected_job.get("job_id")
+        if job_id:
+            try:
+                db_ops.save_selected_job_id(user_id, str(job_id))
+            except Exception as e:
+                print(f"[Save Job ID Error] {e}")
+                
+        # 이미 온보딩이 완료된 경우 즉시 맞춤 자소서 생성
+        if user.get("step", 0) >= 9:
+            user_data = dict(user)
+            user_data["desired_job"] = desired_job_str
+            result = ResumeTask(
+                user_id=user_id,
+                immediate_message=f"[{company}] {title} 맞춤형 자소서를 새롭게 작성 중이에요. 잠시만 기다려주세요 ✍️",
+                user_data=user_data,
+            )
+        else:
+            # 온보딩 미완료인 경우 이어서(또는 처음부터) 작성 안내
+            step = user.get("step", 0)
+            if step == 0:
+                msg = f"[{company}] {title} 맞춤형 자소서 작성을 시작합니다! 😊\n\n" + STEPS[0]["question"]
+                kakao_response = _build_response(msg, STEPS[0]["quick_replies"])
+            else:
+                msg = f"[{company}] {title} 공고에 지원하시네요! 이전에 작성하시던 정보에 이어서 작성할게요 😊\n\n" + STEPS[step]["question"]
+                kakao_response = _build_response(msg, STEPS[step]["quick_replies"])
+            
+            return {"kakao_response": kakao_response, "selected_job": None}
+    else:
+        result = await handle_onboarding(user_id, user_message)
 
     if isinstance(result, ResumeTask):
         if result.user_data is not None:

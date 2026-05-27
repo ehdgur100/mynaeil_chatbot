@@ -192,12 +192,12 @@ async def edu_guide(state: AgentState) -> Dict[str, Any]:
                 {
                     "action": "message",
                     "label": "다른 교육 추천받기",
-                    "messageText": "나한테 맞는 교육 추천해줘",
+                    "messageText": "[CMD]edu_recommend",
                 },
                 {
                     "action": "message",
-                    "label": "구직 가이드북 보기",
-                    "messageText": "취업 준비 팁 가이드 알려줘",
+                    "label": "처음으로",
+                    "messageText": "[CMD]basic_chat",
                 },
             ],
         },

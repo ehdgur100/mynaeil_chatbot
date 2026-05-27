@@ -152,20 +152,33 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
         )
 
     # 6. 빠른 답장 버튼(Quick Replies) 생성
-    quick_replies = ["자소서 작성", "일자리 검색", "자소서 검증"]
+    if recommended:
+        quick_replies = [
+            {"action": "message", "label": f"{i+1}번 공고 자소서 작성", "messageText": f"[CMD]job_select:{i+1}"}
+            for i in range(len(recommended))
+        ]
+        quick_replies.extend([
+            {"action": "message", "label": "다른 일자리 검색", "messageText": "[CMD]job_search"},
+            {"action": "message", "label": "처음으로", "messageText": "[CMD]basic_chat"}
+        ])
+    else:
+        quick_replies = [
+            {"action": "message", "label": "공고 추천", "messageText": "[CMD]job_search"},
+            {"action": "message", "label": "교육 추천", "messageText": "[CMD]edu_recommend"},
+            {"action": "message", "label": "처음으로", "messageText": "[CMD]basic_chat"}
+        ]
+
     kakao_resp = {
         "version": "2.0",
         "template": {
             "outputs": [{"simpleText": {"text": ai_response}}],
-            "quickReplies": [
-                {"action": "message", "label": label, "messageText": label}
-                for label in quick_replies
-            ]
+            "quickReplies": quick_replies
         }
     }
 
     return {
         "messages": [AIMessage(content=ai_response)],
         "kakao_response": kakao_resp,
-        "intent": "job_search"
+        "intent": "job_search",
+        "last_recommended_jobs": recommended
     }

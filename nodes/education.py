@@ -349,20 +349,22 @@ async def edu_recommend(state: AgentState) -> Dict[str, Any]:
             shown_count = i
 
     for i in range(1, shown_count + 1):
-        quick_replies.append(f"{i}번 교육 신청 가이드")
+        quick_replies.append({
+            "action": "message",
+            "label": f"{i}번 교육 신청 가이드",
+            "messageText": f"[CMD]edu_select:{i}"
+        })
 
-    quick_replies.extend(
-        ["모집중 교육 더 보기", "모집예정 교육 보기", "다른 교육 찾기"]
-    )
+    quick_replies.extend([
+        {"action": "message", "label": "다른 교육 찾기", "messageText": "[CMD]edu_recommend"},
+        {"action": "message", "label": "처음으로", "messageText": "[CMD]basic_chat"}
+    ])
 
     kakao_resp = {
         "version": "2.0",
         "template": {
             "outputs": [{"simpleText": {"text": ai_response}}],
-            "quickReplies": [
-                {"action": "message", "label": label, "messageText": label}
-                for label in quick_replies
-            ],
+            "quickReplies": quick_replies,
         },
     }
 
