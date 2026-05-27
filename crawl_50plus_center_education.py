@@ -113,7 +113,7 @@ def normalize_lecture(row: dict[str, Any], state: str) -> dict[str, Any]:
         "title": row.get("title"),
         "provider": row.get("orgName"),
         "business_type_code": "CENTER_EDUCATION",
-        "business_type_name": "50플러스센터 교육",
+        "business_type_name": "50플러스센터교육",
         "recruit_status_code": row.get("status"),
         "recruit_status_name": STATE_LABELS.get(state, state),
         "recruit_type_code": "LECTURE",
@@ -197,7 +197,7 @@ def save_outputs(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Crawl joining 50plus center education lectures."
+        description="Crawl 50plus center education lectures."
     )
     parser.add_argument("--limit", type=int, default=None, help="Maximum rows to save.")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)

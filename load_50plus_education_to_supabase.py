@@ -56,7 +56,7 @@ def to_float(value: Any) -> float | None:
 
 def infer_category(row: dict[str, Any]) -> str | None:
     value = clean_value(row.get("category"))
-    if value:
+    if value in ("취업훈련", "AI디지털교육", "50플러스센터교육"):
         return value
 
     application_url = clean_value(row.get("application_url") or row.get("source_url")) or ""
@@ -88,7 +88,7 @@ def normalize_recruitment_status(row: dict[str, Any]) -> str | None:
         return "모집마감"
     if status_code in ("PENDING", "PEND"):
         return "모집예정"
-    if status_code in ("OPEN", "WAITING", "IN17003"):
+    if status_code in ("OPEN", "WAITING", "IN17003", "JOIN"):
         return "모집중"
     if status_code in ("CLOSED", "CLOSE"):
         return "모집마감"
