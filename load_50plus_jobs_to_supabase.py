@@ -92,6 +92,25 @@ def get_supabase() -> Client:
 
 
 def upsert_jobs(client: Client, jobs: list[dict[str, Any]], batch_size: int) -> None:
+    # Get current ann_no list from Supabase
+    try:
+        response = client.table(TABLE_NAME).select("ann_no").execute()
+        existing_ann_nos = {row["ann_no"] for row in response.data}
+    except Exception as exc:
+        print(f"Warning: Could not fetch existing ann_no: {exc}")
+        existing_ann_nos = set()
+
+    new_ann_nos = {job["ann_no"] for job in jobs if job.get("ann_no") is not None}
+    to_delete = existing_ann_nos - new_ann_nos
+
+    if to_delete:
+        print(f"Deleting {len(to_delete)} expired jobs...")
+        # Supabase API usually allows deleting by list, but in eq it might need to be done in batches or IN clause
+        to_delete_list = list(to_delete)
+        for i in range(0, len(to_delete_list), batch_size):
+            batch_delete = to_delete_list[i : i + batch_size]
+            client.table(TABLE_NAME).delete().in_("ann_no", batch_delete).execute()
+
     for idx in range(0, len(jobs), batch_size):
         batch = jobs[idx : idx + batch_size]
         try:
