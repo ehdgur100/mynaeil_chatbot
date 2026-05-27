@@ -1,0 +1,866 @@
+[
+  {
+    "ann_no": 73133478,
+    "category": "AI디지털교육",
+    "recruitment_status": "모집예정",
+    "title": "[AI디지털교육]조회수 급상승 숏폼 제작",
+    "provider": "남부캠퍼스",
+    "business_type_code": "AI_DIGITAL",
+    "business_type_name": "AI디지털교육",
+    "recruit_status_code": "PENDING",
+    "recruit_status_name": "모집예정",
+    "recruit_type_code": "LECTURE",
+    "recruit_type_name": "교육회원",
+    "apply_period": "2026-06-22~2026-09-16",
+    "apply_start": "2026-06-22",
+    "apply_end": "2026-09-16",
+    "selection_announcement": null,
+    "dday": 112,
+    "recruit_count": 25,
+    "occupation_code": "70629858",
+    "occupation_name": "디지털기본",
+    "work_condition_code": "CHARGED",
+    "work_condition_name": "유료",
+    "career_code": null,
+    "career_name": null,
+    "fee_amount": 24000,
+    "fee_text": "24000원",
+    "education_start": "2026-09-16",
+    "education_end": "2026-10-07",
+    "education_location": "남부캠퍼스",
+    "pre_edu_yn": null,
+    "lecturer": "허지영",
+    "term": "2026년 AI디지털교육",
+    "register_count": 0,
+    "waiting_personnel": 10,
+    "application_url": "https://www.50plus.or.kr/education-detail.do?id=73133478&viewCount=12&educationKind=aiDigital",
+    "source_url": "https://www.50plus.or.kr/education-detail.do?id=73133478&viewCount=12&educationKind=aiDigital",
+    "crawled_at": "2026-05-27T15:10:58",
+    "raw_data": {
+      "id": 73133478,
+      "code": "023",
+      "createdDate": "2026-05-21",
+      "title": "[AI디지털교육]조회수 급상승 숏폼 제작",
+      "registStartDate": "260622",
+      "registEndDate": "260916",
+      "mainLecturer": "허지영",
+      "type": "CHARGED",
+      "cost": 24000,
+      "personnel": 25,
+      "registerCnt": 0,
+      "waitingPersonnel": 10,
+      "awaitingCnt": 0,
+      "approvalWaitingCnt": 0,
+      "refundWaitingCnt": 0,
+      "refundRegisterCnt": 0,
+      "status": "PENDING",
+      "courseStartDate": "260916",
+      "courseEndDate": "261007",
+      "progress": "PREPARE",
+      "termId": 70627589,
+      "term": "2026년 AI디지털교육",
+      "facultyId": 70629858,
+      "faculty": "디지털기본",
+      "orgName": "남부캠퍼스",
+      "order": 500,
+      "loginId": "kijsu",
+      "publish": true,
+      "scheduleCount": 4,
+      "openDate": {
+        "weekOfWeekyear": 26,
+        "millisOfDay": 32400000,
+        "monthOfYear": 6,
+        "minuteOfHour": 0,
+        "secondOfMinute": 0,
+        "millisOfSecond": 0,
+        "weekyear": 2026,
+        "yearOfEra": 2026,
+        "yearOfCentury": 26,
+        "centuryOfEra": 20,
+        "hourOfDay": 9,
+        "chronology": {
+          "zone": {
+            "fixed": true,
+            "id": "UTC"
+          }
+        },
+        "year": 2026,
+        "dayOfMonth": 22,
+        "era": 1,
+        "dayOfYear": 173,
+        "dayOfWeek": 1,
+        "fieldTypes": [
+          {
+            "durationType": {
+              "name": "years"
+            },
+            "rangeDurationType": null,
+            "name": "year"
+          },
+          {
+            "durationType": {
+              "name": "months"
+            },
+            "rangeDurationType": {
+              "name": "years"
+            },
+            "name": "monthOfYear"
+          },
+          {
+            "durationType": {
+              "name": "days"
+            },
+            "rangeDurationType": {
+              "name": "months"
+            },
+            "name": "dayOfMonth"
+          },
+          {
+            "durationType": {
+              "name": "millis"
+            },
+            "rangeDurationType": {
+              "name": "days"
+            },
+            "name": "millisOfDay"
+          }
+        ],
+        "values": [
+          2026,
+          6,
+          22,
+          32400000
+        ],
+        "fields": [
+          {
+            "rangeDurationField": null,
+            "leapDurationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "minimumValue": -292275054,
+            "maximumValue": 292278993,
+            "lenient": false,
+            "durationField": {
+              "unitMillis": 31556952000,
+              "precise": false,
+              "name": "years",
+              "type": {
+                "name": "years"
+              },
+              "supported": true
+            },
+            "name": "year",
+            "type": {
+              "durationType": {
+                "name": "years"
+              },
+              "rangeDurationType": null,
+              "name": "year"
+            },
+            "supported": true
+          },
+          {
+            "rangeDurationField": {
+              "unitMillis": 31556952000,
+              "precise": false,
+              "name": "years",
+              "type": {
+                "name": "years"
+              },
+              "supported": true
+            },
+            "leapDurationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "minimumValue": 1,
+            "maximumValue": 12,
+            "lenient": false,
+            "durationField": {
+              "unitMillis": 2629746000,
+              "precise": false,
+              "name": "months",
+              "type": {
+                "name": "months"
+              },
+              "supported": true
+            },
+            "name": "monthOfYear",
+            "type": {
+              "durationType": {
+                "name": "months"
+              },
+              "rangeDurationType": {
+                "name": "years"
+              },
+              "name": "monthOfYear"
+            },
+            "supported": true
+          },
+          {
+            "rangeDurationField": {
+              "unitMillis": 2629746000,
+              "precise": false,
+              "name": "months",
+              "type": {
+                "name": "months"
+              },
+              "supported": true
+            },
+            "minimumValue": 1,
+            "maximumValue": 31,
+            "unitMillis": 86400000,
+            "durationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "lenient": false,
+            "leapDurationField": null,
+            "name": "dayOfMonth",
+            "type": {
+              "durationType": {
+                "name": "days"
+              },
+              "rangeDurationType": {
+                "name": "months"
+              },
+              "name": "dayOfMonth"
+            },
+            "supported": true
+          },
+          {
+            "rangeDurationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "maximumValue": 86399999,
+            "range": 86400000,
+            "unitMillis": 1,
+            "minimumValue": 0,
+            "durationField": {
+              "unitMillis": 1,
+              "precise": true,
+              "name": "millis",
+              "type": {
+                "name": "millis"
+              },
+              "supported": true
+            },
+            "lenient": false,
+            "leapDurationField": null,
+            "name": "millisOfDay",
+            "type": {
+              "durationType": {
+                "name": "millis"
+              },
+              "rangeDurationType": {
+                "name": "days"
+              },
+              "name": "millisOfDay"
+            },
+            "supported": true
+          }
+        ]
+      },
+      "endDate": null,
+      "isWish": null
+    }
+  },
+  {
+    "ann_no": 73133371,
+    "category": "AI디지털교육",
+    "recruitment_status": "모집예정",
+    "title": "[AI디지털교육]다양한 플랫폼을 활용한 멀티미디어 콘텐츠 제작",
+    "provider": "남부캠퍼스",
+    "business_type_code": "AI_DIGITAL",
+    "business_type_name": "AI디지털교육",
+    "recruit_status_code": "PENDING",
+    "recruit_status_name": "모집예정",
+    "recruit_type_code": "LECTURE",
+    "recruit_type_name": "교육회원",
+    "apply_period": "2026-06-22~2026-09-07",
+    "apply_start": "2026-06-22",
+    "apply_end": "2026-09-07",
+    "selection_announcement": null,
+    "dday": 103,
+    "recruit_count": 25,
+    "occupation_code": "70629858",
+    "occupation_name": "디지털기본",
+    "work_condition_code": "CHARGED",
+    "work_condition_name": "유료",
+    "career_code": null,
+    "career_name": null,
+    "fee_amount": 24000,
+    "fee_text": "24000원",
+    "education_start": "2026-09-07",
+    "education_end": "2026-09-28",
+    "education_location": "남부캠퍼스",
+    "pre_edu_yn": null,
+    "lecturer": "고상희",
+    "term": "2026년 AI디지털교육",
+    "register_count": 0,
+    "waiting_personnel": 10,
+    "application_url": "https://www.50plus.or.kr/education-detail.do?id=73133371&viewCount=12&educationKind=aiDigital",
+    "source_url": "https://www.50plus.or.kr/education-detail.do?id=73133371&viewCount=12&educationKind=aiDigital",
+    "crawled_at": "2026-05-27T15:10:58",
+    "raw_data": {
+      "id": 73133371,
+      "code": "022",
+      "createdDate": "2026-05-21",
+      "title": "[AI디지털교육]다양한 플랫폼을 활용한 멀티미디어 콘텐츠 제작",
+      "registStartDate": "260622",
+      "registEndDate": "260907",
+      "mainLecturer": "고상희",
+      "type": "CHARGED",
+      "cost": 24000,
+      "personnel": 25,
+      "registerCnt": 0,
+      "waitingPersonnel": 10,
+      "awaitingCnt": 0,
+      "approvalWaitingCnt": 0,
+      "refundWaitingCnt": 0,
+      "refundRegisterCnt": 0,
+      "status": "PENDING",
+      "courseStartDate": "260907",
+      "courseEndDate": "260928",
+      "progress": "PREPARE",
+      "termId": 70627589,
+      "term": "2026년 AI디지털교육",
+      "facultyId": 70629858,
+      "faculty": "디지털기본",
+      "orgName": "남부캠퍼스",
+      "order": 500,
+      "loginId": "kijsu",
+      "publish": true,
+      "scheduleCount": 4,
+      "openDate": {
+        "weekOfWeekyear": 26,
+        "millisOfDay": 32400000,
+        "monthOfYear": 6,
+        "minuteOfHour": 0,
+        "secondOfMinute": 0,
+        "millisOfSecond": 0,
+        "weekyear": 2026,
+        "yearOfEra": 2026,
+        "yearOfCentury": 26,
+        "centuryOfEra": 20,
+        "hourOfDay": 9,
+        "chronology": {
+          "zone": {
+            "fixed": true,
+            "id": "UTC"
+          }
+        },
+        "year": 2026,
+        "dayOfMonth": 22,
+        "era": 1,
+        "dayOfYear": 173,
+        "dayOfWeek": 1,
+        "fieldTypes": [
+          {
+            "durationType": {
+              "name": "years"
+            },
+            "rangeDurationType": null,
+            "name": "year"
+          },
+          {
+            "durationType": {
+              "name": "months"
+            },
+            "rangeDurationType": {
+              "name": "years"
+            },
+            "name": "monthOfYear"
+          },
+          {
+            "durationType": {
+              "name": "days"
+            },
+            "rangeDurationType": {
+              "name": "months"
+            },
+            "name": "dayOfMonth"
+          },
+          {
+            "durationType": {
+              "name": "millis"
+            },
+            "rangeDurationType": {
+              "name": "days"
+            },
+            "name": "millisOfDay"
+          }
+        ],
+        "values": [
+          2026,
+          6,
+          22,
+          32400000
+        ],
+        "fields": [
+          {
+            "rangeDurationField": null,
+            "leapDurationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "minimumValue": -292275054,
+            "maximumValue": 292278993,
+            "lenient": false,
+            "durationField": {
+              "unitMillis": 31556952000,
+              "precise": false,
+              "name": "years",
+              "type": {
+                "name": "years"
+              },
+              "supported": true
+            },
+            "name": "year",
+            "type": {
+              "durationType": {
+                "name": "years"
+              },
+              "rangeDurationType": null,
+              "name": "year"
+            },
+            "supported": true
+          },
+          {
+            "rangeDurationField": {
+              "unitMillis": 31556952000,
+              "precise": false,
+              "name": "years",
+              "type": {
+                "name": "years"
+              },
+              "supported": true
+            },
+            "leapDurationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "minimumValue": 1,
+            "maximumValue": 12,
+            "lenient": false,
+            "durationField": {
+              "unitMillis": 2629746000,
+              "precise": false,
+              "name": "months",
+              "type": {
+                "name": "months"
+              },
+              "supported": true
+            },
+            "name": "monthOfYear",
+            "type": {
+              "durationType": {
+                "name": "months"
+              },
+              "rangeDurationType": {
+                "name": "years"
+              },
+              "name": "monthOfYear"
+            },
+            "supported": true
+          },
+          {
+            "rangeDurationField": {
+              "unitMillis": 2629746000,
+              "precise": false,
+              "name": "months",
+              "type": {
+                "name": "months"
+              },
+              "supported": true
+            },
+            "minimumValue": 1,
+            "maximumValue": 31,
+            "unitMillis": 86400000,
+            "durationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "lenient": false,
+            "leapDurationField": null,
+            "name": "dayOfMonth",
+            "type": {
+              "durationType": {
+                "name": "days"
+              },
+              "rangeDurationType": {
+                "name": "months"
+              },
+              "name": "dayOfMonth"
+            },
+            "supported": true
+          },
+          {
+            "rangeDurationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "maximumValue": 86399999,
+            "range": 86400000,
+            "unitMillis": 1,
+            "minimumValue": 0,
+            "durationField": {
+              "unitMillis": 1,
+              "precise": true,
+              "name": "millis",
+              "type": {
+                "name": "millis"
+              },
+              "supported": true
+            },
+            "lenient": false,
+            "leapDurationField": null,
+            "name": "millisOfDay",
+            "type": {
+              "durationType": {
+                "name": "millis"
+              },
+              "rangeDurationType": {
+                "name": "days"
+              },
+              "name": "millisOfDay"
+            },
+            "supported": true
+          }
+        ]
+      },
+      "endDate": null,
+      "isWish": null
+    }
+  },
+  {
+    "ann_no": 73133242,
+    "category": "AI디지털교육",
+    "recruitment_status": "모집예정",
+    "title": "[AI디지털교육]AI&GPT 전문가 2급 자격증과정",
+    "provider": "남부캠퍼스",
+    "business_type_code": "AI_DIGITAL",
+    "business_type_name": "AI디지털교육",
+    "recruit_status_code": "PENDING",
+    "recruit_status_name": "모집예정",
+    "recruit_type_code": "LECTURE",
+    "recruit_type_name": "교육회원",
+    "apply_period": "2026-06-22~2026-07-27",
+    "apply_start": "2026-06-22",
+    "apply_end": "2026-07-27",
+    "selection_announcement": null,
+    "dday": 61,
+    "recruit_count": 25,
+    "occupation_code": "70629858",
+    "occupation_name": "디지털기본",
+    "work_condition_code": "CHARGED",
+    "work_condition_name": "유료",
+    "career_code": null,
+    "career_name": null,
+    "fee_amount": 36000,
+    "fee_text": "36000원",
+    "education_start": "2026-07-28",
+    "education_end": "2026-09-01",
+    "education_location": "남부캠퍼스",
+    "pre_edu_yn": null,
+    "lecturer": "조은이",
+    "term": "2026년 AI디지털교육",
+    "register_count": 0,
+    "waiting_personnel": 10,
+    "application_url": "https://www.50plus.or.kr/education-detail.do?id=73133242&viewCount=12&educationKind=aiDigital",
+    "source_url": "https://www.50plus.or.kr/education-detail.do?id=73133242&viewCount=12&educationKind=aiDigital",
+    "crawled_at": "2026-05-27T15:10:58",
+    "raw_data": {
+      "id": 73133242,
+      "code": "021",
+      "createdDate": "2026-05-21",
+      "title": "[AI디지털교육]AI&GPT 전문가 2급 자격증과정",
+      "registStartDate": "260622",
+      "registEndDate": "260727",
+      "mainLecturer": "조은이",
+      "type": "CHARGED",
+      "cost": 36000,
+      "personnel": 25,
+      "registerCnt": 0,
+      "waitingPersonnel": 10,
+      "awaitingCnt": 0,
+      "approvalWaitingCnt": 0,
+      "refundWaitingCnt": 0,
+      "refundRegisterCnt": 0,
+      "status": "PENDING",
+      "courseStartDate": "260728",
+      "courseEndDate": "260901",
+      "progress": "PREPARE",
+      "termId": 70627589,
+      "term": "2026년 AI디지털교육",
+      "facultyId": 70629858,
+      "faculty": "디지털기본",
+      "orgName": "남부캠퍼스",
+      "order": 500,
+      "loginId": "kijsu",
+      "publish": true,
+      "scheduleCount": 6,
+      "openDate": {
+        "weekOfWeekyear": 26,
+        "millisOfDay": 32400000,
+        "monthOfYear": 6,
+        "minuteOfHour": 0,
+        "secondOfMinute": 0,
+        "millisOfSecond": 0,
+        "weekyear": 2026,
+        "yearOfEra": 2026,
+        "yearOfCentury": 26,
+        "centuryOfEra": 20,
+        "hourOfDay": 9,
+        "chronology": {
+          "zone": {
+            "fixed": true,
+            "id": "UTC"
+          }
+        },
+        "year": 2026,
+        "dayOfMonth": 22,
+        "era": 1,
+        "dayOfYear": 173,
+        "dayOfWeek": 1,
+        "fieldTypes": [
+          {
+            "durationType": {
+              "name": "years"
+            },
+            "rangeDurationType": null,
+            "name": "year"
+          },
+          {
+            "durationType": {
+              "name": "months"
+            },
+            "rangeDurationType": {
+              "name": "years"
+            },
+            "name": "monthOfYear"
+          },
+          {
+            "durationType": {
+              "name": "days"
+            },
+            "rangeDurationType": {
+              "name": "months"
+            },
+            "name": "dayOfMonth"
+          },
+          {
+            "durationType": {
+              "name": "millis"
+            },
+            "rangeDurationType": {
+              "name": "days"
+            },
+            "name": "millisOfDay"
+          }
+        ],
+        "values": [
+          2026,
+          6,
+          22,
+          32400000
+        ],
+        "fields": [
+          {
+            "rangeDurationField": null,
+            "leapDurationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "minimumValue": -292275054,
+            "maximumValue": 292278993,
+            "lenient": false,
+            "durationField": {
+              "unitMillis": 31556952000,
+              "precise": false,
+              "name": "years",
+              "type": {
+                "name": "years"
+              },
+              "supported": true
+            },
+            "name": "year",
+            "type": {
+              "durationType": {
+                "name": "years"
+              },
+              "rangeDurationType": null,
+              "name": "year"
+            },
+            "supported": true
+          },
+          {
+            "rangeDurationField": {
+              "unitMillis": 31556952000,
+              "precise": false,
+              "name": "years",
+              "type": {
+                "name": "years"
+              },
+              "supported": true
+            },
+            "leapDurationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "minimumValue": 1,
+            "maximumValue": 12,
+            "lenient": false,
+            "durationField": {
+              "unitMillis": 2629746000,
+              "precise": false,
+              "name": "months",
+              "type": {
+                "name": "months"
+              },
+              "supported": true
+            },
+            "name": "monthOfYear",
+            "type": {
+              "durationType": {
+                "name": "months"
+              },
+              "rangeDurationType": {
+                "name": "years"
+              },
+              "name": "monthOfYear"
+            },
+            "supported": true
+          },
+          {
+            "rangeDurationField": {
+              "unitMillis": 2629746000,
+              "precise": false,
+              "name": "months",
+              "type": {
+                "name": "months"
+              },
+              "supported": true
+            },
+            "minimumValue": 1,
+            "maximumValue": 31,
+            "unitMillis": 86400000,
+            "durationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "lenient": false,
+            "leapDurationField": null,
+            "name": "dayOfMonth",
+            "type": {
+              "durationType": {
+                "name": "days"
+              },
+              "rangeDurationType": {
+                "name": "months"
+              },
+              "name": "dayOfMonth"
+            },
+            "supported": true
+          },
+          {
+            "rangeDurationField": {
+              "unitMillis": 86400000,
+              "precise": true,
+              "name": "days",
+              "type": {
+                "name": "days"
+              },
+              "supported": true
+            },
+            "maximumValue": 86399999,
+            "range": 86400000,
+            "unitMillis": 1,
+            "minimumValue": 0,
+            "durationField": {
+              "unitMillis": 1,
+              "precise": true,
+              "name": "millis",
+              "type": {
+                "name": "millis"
+              },
+              "supported": true
+            },
+            "lenient": false,
+            "leapDurationField": null,
+            "name": "millisOfDay",
+            "type": {
+              "durationType": {
+                "name": "millis"
+              },
+              "rangeDurationType": {
+                "name": "days"
+              },
+              "name": "millisOfDay"
+            },
+            "supported": true
+          }
+        ]
+      },
+      "endDate": null,
+      "isWish": null
+    }
+  }
+]

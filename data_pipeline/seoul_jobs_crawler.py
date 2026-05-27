@@ -2,6 +2,7 @@ import sys
 import os
 import requests
 import json
+import argparse
 from datetime import datetime
 
 # config와 database 모듈의 경로를 찾아서 sys.path에 추가
@@ -13,7 +14,18 @@ import config
 from database.connection import supabase
 
 
-def run_seoul_crawler():
+for proxy_env_name in (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+):
+    os.environ.pop(proxy_env_name, None)
+
+
+def run_seoul_crawler(target_count=3000):
     if not supabase:
         print("[Error] Supabase 클라이언트가 초기화되지 않았습니다.")
         return
@@ -23,7 +35,6 @@ def run_seoul_crawler():
 
     start_idx = 1
     chunk_size = 1000  # 한 번에 가져올 개수 (서울시 API 최대 1000)
-    target_count = 3000  # 일단 3천개 정도만 수집해봅시다 (너무 많으면 오래 걸림)
     success_count = 0
 
     print("서울시 일자리포털 채용정보 API 크롤러 시작...")
@@ -112,4 +123,7 @@ def run_seoul_crawler():
 
 
 if __name__ == "__main__":
-    run_seoul_crawler()
+    parser = argparse.ArgumentParser(description="Crawl Seoul jobs into Supabase jobs3.")
+    parser.add_argument("--target-count", type=int, default=3000)
+    args = parser.parse_args()
+    run_seoul_crawler(target_count=args.target_count)

@@ -12,8 +12,8 @@ import requests
 
 BASE_URL = "https://www.50plus.or.kr"
 LIST_URL = f"{BASE_URL}/api/lectures/list"
-REFERER_URL = (
-    f"{BASE_URL}/aiDigital.do?viewCount=12&state=JOIN&cost=ALL&term=undefined"
+REFERER_URL_TEMPLATE = (
+    f"{BASE_URL}/aiDigital.do?viewCount=12&state={{state}}&cost=ALL&term=undefined"
     "&type=ALL&orgCode=ALL"
 )
 
@@ -22,6 +22,11 @@ STATE_LABELS = {
     "JOIN": "모집중",
     "PEND": "모집예정",
     "CLOSE": "모집마감",
+}
+STATE_SLUGS = {
+    "JOIN": "joining",
+    "PEND": "pending",
+    "CLOSE": "closed",
 }
 
 
@@ -37,7 +42,7 @@ def disable_proxy_env() -> None:
         os.environ.pop(key, None)
 
 
-def make_session() -> requests.Session:
+def make_session(state: str) -> requests.Session:
     disable_proxy_env()
     session = requests.Session()
     session.trust_env = False
@@ -49,17 +54,17 @@ def make_session() -> requests.Session:
             ),
             "Accept": "application/json, text/javascript, */*; q=0.01",
             "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
-            "Referer": REFERER_URL,
+            "Referer": REFERER_URL_TEMPLATE.format(state=state),
         }
     )
     return session
 
 
-def request_page(session: requests.Session, page: int) -> dict[str, Any]:
+def request_page(session: requests.Session, page: int, state: str) -> dict[str, Any]:
     params = {
         "educationKind": "aiDigital",
         "page": page,
-        "state": "JOIN",
+        "state": state,
         "cost": "ALL",
         "type": "ALL",
         "orgCode": "ALL",
@@ -89,7 +94,7 @@ def calculate_dday(end_date: str | None) -> int | None:
     return (target - date.today()).days
 
 
-def normalize_lecture(row: dict[str, Any]) -> dict[str, Any]:
+def normalize_lecture(row: dict[str, Any], state: str) -> dict[str, Any]:
     lecture_id = row.get("id")
     apply_start = parse_yymmdd(row.get("registStartDate"))
     apply_end = parse_yymmdd(row.get("registEndDate"))
@@ -104,13 +109,13 @@ def normalize_lecture(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "ann_no": lecture_id,
         "category": "AI디지털교육",
-        "recruitment_status": STATE_LABELS["JOIN"],
+        "recruitment_status": STATE_LABELS.get(state, state),
         "title": row.get("title"),
         "provider": row.get("orgName"),
         "business_type_code": "AI_DIGITAL",
         "business_type_name": "AI디지털교육",
         "recruit_status_code": row.get("status"),
-        "recruit_status_name": "모집중",
+        "recruit_status_name": STATE_LABELS.get(state, state),
         "recruit_type_code": "LECTURE",
         "recruit_type_name": "교육회원",
         "apply_period": f"{apply_start}~{apply_end}" if apply_start or apply_end else None,
@@ -142,9 +147,11 @@ def normalize_lecture(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def crawl_lectures(limit: int | None = None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    session = make_session()
-    first_page = request_page(session, 1)
+def crawl_lectures(
+    limit: int | None = None, state: str = "JOIN"
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    session = make_session(state)
+    first_page = request_page(session, 1, state)
     total_count = int(first_page.get("totalElements") or 0)
     total_pages = int(first_page.get("totalPages") or 1)
     target_count = min(total_count, limit) if limit else total_count
@@ -153,13 +160,13 @@ def crawl_lectures(limit: int | None = None) -> tuple[list[dict[str, Any]], dict
     seen_ids: set[int] = set()
 
     for page in range(1, total_pages + 1):
-        payload = first_page if page == 1 else request_page(session, page)
+        payload = first_page if page == 1 else request_page(session, page, state)
         for row in payload.get("content", []):
             lecture_id = row.get("id")
             if lecture_id in seen_ids:
                 continue
             seen_ids.add(lecture_id)
-            lectures.append(normalize_lecture(row))
+            lectures.append(normalize_lecture(row, state))
             if len(lectures) >= target_count:
                 return lectures, first_page
         print(f"Fetched {len(lectures):>3}/{target_count} rows")
@@ -167,10 +174,13 @@ def crawl_lectures(limit: int | None = None) -> tuple[list[dict[str, Any]], dict
     return lectures, first_page
 
 
-def save_outputs(lectures: list[dict[str, Any]], output_dir: Path) -> tuple[Path, Path]:
+def save_outputs(
+    lectures: list[dict[str, Any]], output_dir: Path, state: str
+) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = output_dir / "50plus_ai_digital_joining.csv"
-    json_path = output_dir / "50plus_ai_digital_joining.json"
+    state_slug = STATE_SLUGS.get(state, state.lower())
+    csv_path = output_dir / f"50plus_ai_digital_{state_slug}.csv"
+    json_path = output_dir / f"50plus_ai_digital_{state_slug}.json"
 
     flat_fields = [key for key in lectures[0].keys() if key != "raw_data"] if lectures else []
     with csv_path.open("w", newline="", encoding="utf-8-sig") as csv_file:
@@ -187,15 +197,21 @@ def save_outputs(lectures: list[dict[str, Any]], output_dir: Path) -> tuple[Path
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Crawl joining 50plus AI digital education lectures."
+        description="Crawl 50plus AI digital education lectures."
     )
     parser.add_argument("--limit", type=int, default=None, help="Maximum rows to save.")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument(
+        "--state",
+        default="JOIN",
+        choices=sorted(STATE_LABELS),
+        help="Lecture recruitment state. JOIN=모집중, PEND=모집예정.",
+    )
     args = parser.parse_args()
 
     try:
-        lectures, pagination = crawl_lectures(args.limit)
-        csv_path, json_path = save_outputs(lectures, args.output_dir)
+        lectures, pagination = crawl_lectures(args.limit, args.state)
+        csv_path, json_path = save_outputs(lectures, args.output_dir, args.state)
         print(f"Site totalElements: {pagination.get('totalElements')}")
         print(f"Saved {len(lectures)} unique rows")
         print(f"CSV UTF-8: {csv_path}")
