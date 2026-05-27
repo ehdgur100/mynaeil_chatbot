@@ -1,3 +1,6 @@
+import re
+import html as html_module
+import httpx
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 import config
@@ -5,7 +8,7 @@ import config
 _SYSTEM_PROMPT = """당신은 50~60대 신중년 구직자의 취업을 돕는
 친절한 취업 도우미입니다.
 
-아래 공고 정보를 바탕으로 지원 방법을 파악하고,
+아래 공고 정보와 공고 페이지 전문을 바탕으로 지원 방법을 파악하고,
 처음 지원하는 분도 따라할 수 있도록
 단계별로 안내해주세요.
 
@@ -40,11 +43,41 @@ _USER_TEMPLATE = """아래 공고의 지원 방법을 안내해주세요.
 - 공고 내용: {description}
 - 근무지: {location}
 - 마감일: {deadline}
-- 공고 원문 URL: {source_url}"""
+- 공고 원문 URL: {source_url}
+
+[공고 페이지 전문]
+{page_text}"""
+
+
+def _strip_html(raw: str) -> str:
+    text = re.sub(r'<(script|style)[^>]*>.*?</(script|style)>', '', raw, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = html_module.unescape(text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+async def _fetch_page_text(url: str) -> str:
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            resp = await client.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            )
+            text = _strip_html(resp.text)
+            print(f"[fetch_page_text] {len(text)}자 수집 (URL: {url[:60]}...)")
+            return text[:4000]
+    except Exception as e:
+        print(f"[fetch_page_text] 실패: {e}")
+        return ""
 
 
 async def get_apply_guide(job: dict) -> str:
     source_url = job.get("source_url") or "알 수 없음"
+
+    page_text = ""
+    if source_url and source_url.startswith(("http://", "https://")):
+        page_text = await _fetch_page_text(source_url)
+
     llm = ChatOpenAI(model="gpt-4o-mini", api_key=config.OPENAI_API_KEY)
     user_prompt = _USER_TEMPLATE.format(
         company=job.get("company") or "정보 없음",
@@ -53,6 +86,7 @@ async def get_apply_guide(job: dict) -> str:
         location=job.get("location") or "정보 없음",
         deadline=job.get("deadline") or "미정",
         source_url=source_url,
+        page_text=page_text if page_text else "페이지 내용을 가져오지 못했습니다.",
     )
     try:
         response = await llm.ainvoke([
