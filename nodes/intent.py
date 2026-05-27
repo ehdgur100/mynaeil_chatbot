@@ -1,18 +1,42 @@
 import re
-from typing import Dict, Any
-from state import AgentState
-from nodes.base import IntentEnum, llm_fast, get_content
+from typing import Any, Dict
+
 from database.operations import get_user_profile
+from nodes.base import IntentEnum, get_content, llm_fast
+from state import AgentState
+
+
+RESET_KEYWORDS = ("처음부터", "초기화", "다시 시작")
+EDU_WORDS = ("교육", "강의", "강좌", "과정", "훈련", "직업훈련", "수강", "디지털역량")
+EDU_GUIDE_WORDS = ("가이드", "준비", "신청", "방법", "어떻게", "서류", "수료", "이후")
+JOB_WORDS = ("일자리", "알바", "취업", "구인", "공고", "일할", "채용", "직무 추천")
+RESUME_WORDS = ("이력서", "자기소개서", "자소서", "경력", "자소서 보여줘", "저장된 자소서")
+VERIFY_WORDS = ("검증", "평가", "첨삭", "피드백", "자소서 수정")
+GREETING_WORDS = ("안녕", "하이", "반가", "뭐해", "누구", "이름")
+
+
+def _contains_any(text: str, words: tuple[str, ...]) -> bool:
+    return any(word in text for word in words)
+
+
+def _is_education_guide(text: str) -> bool:
+    numbered_guide = re.search(r"\d+\s*번\s*(교육|과정)?\s*(신청|가이드|준비)", text)
+    return bool(numbered_guide) or (
+        _contains_any(text, EDU_WORDS) and _contains_any(text, EDU_GUIDE_WORDS)
+    )
+
+
+def _is_education_recommend(text: str) -> bool:
+    return _contains_any(text, EDU_WORDS)
+
+
+def _is_job_search(text: str) -> bool:
+    return _contains_any(text, JOB_WORDS)
 
 
 async def analyze_intent(state: AgentState) -> Dict[str, Any]:
-    """
-    [의도 분석기 노드]
-    사용자의 입력 발화를 분석하여 어떤 카테고리(자소서 작성, 자소서 검증, 일자리 찾기 등)로 이동할지 라우팅 의도를 결정합니다.
-    """
     print("[Node] analyze_intent 실행")
 
-    # 1. 이전 단계나 퀵버튼 클릭 등을 통해 명시적으로 의도가 미리 설정되어 들어왔다면 해당 의도를 즉시 유지합니다.
     current_intent = state.get("intent")
     if current_intent:
         return {"intent": current_intent}
@@ -20,159 +44,54 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     user_id = state.get("user_id", "unknown")
     messages = state.get("messages", [])
     user_input = messages[-1].content if messages else ""
-    input_clean = user_message = user_input.strip().lower()
+    text = user_input.strip().lower()
 
-    # 2. 온보딩 진행 체크 (Smart Bypass 예외)
-    # - 만약 사용자가 현재 9단계 자소서 온보딩 문답을 진행 중(step 0~8)인 상태거나,
-    # - 자소서 작성이 완료/수정 중인 상태(generated, reviewed, editing, done)라면,
-    # - 흐름을 방해하지 않고 자소서 작성 노드(resume_gen)로 강제 고정합니다.
-    # - 단! "처음부터" 초기화 키워드나 완료 상태(done)에서 완전히 다른 직무 검색/안내 등으로 빠져나갈 때는 제외합니다.
+    if _contains_any(text, GREETING_WORDS):
+        return {"intent": "basic_chat"}
+
+    if _is_education_guide(text):
+        return {"intent": "edu_guide"}
+
+    if _is_education_recommend(text):
+        return {"intent": "edu_recommend"}
+
+    if _is_job_search(text):
+        return {"intent": "job_search"}
+
+    if _contains_any(text, VERIFY_WORDS):
+        return {"intent": "resume_verify"}
+
+    if _contains_any(text, RESUME_WORDS):
+        return {"intent": "resume_gen"}
+
     try:
         profile = get_user_profile(user_id)
         if profile is not None:
+            resume_status = profile.get("resume_status", "none") or "none"
+            if resume_status.startswith("edu_") and not _contains_any(text, RESET_KEYWORDS):
+                return {"intent": "edu_recommend"}
+
             step = profile.get("step", 0)
-            resume_status = profile.get("resume_status", "none")
-
             is_onboarding = 0 <= step < 9
-            is_resume_active = resume_status in [
-                "generated",
-                "reviewed",
-                "editing",
-                "done",
-            ]
+            is_resume_active = resume_status in ("generated", "reviewed", "editing", "done")
+            if (is_onboarding or is_resume_active) and not _contains_any(text, RESET_KEYWORDS):
+                return {"intent": "resume_gen"}
+    except Exception as exc:
+        print(f"[Intent Warning] profile check failed: {exc}")
 
-            if (is_onboarding or is_resume_active) and not any(
-                k in input_clean for k in ["처음부터", "초기화", "다시 시작"]
-            ):
-                # 완료(done) 상태에서 사용자가 다른 기능(일자리 검색 등)을 요구하는 경우는 자연스러운 탈출 허용
-                if resume_status == "done" and any(
-                    k in input_clean
-                    for k in ["일자리", "알바", "취업", "구인", "공고", "채용", "추천"]
-                ):
-                    pass
-                else:
-                    print(
-                        f"[Intent] 자소서 흐름 유저 확인 (step: {step}, status: {resume_status}) → 자소서 루프 강제 라우팅"
-                    )
-                    return {"intent": "resume_gen"}
-    except Exception as e:
-        print(f"[Intent Warning] 온보딩 사전 확인 실패: {e}")
-
-    # 3. 초고속 하드코딩 키워드 매칭 (LLM 호출 비용을 아끼고 빠른 응답을 위한 캐싱 필터)
-
-    # 인사말 키워드가 포함되면 일반 일상챗으로 분류
-    if any(
-        k in input_clean for k in ["안녕", "누구", "반가워", "하이", "이름", "뭐해"]
-    ):
-        return {"intent": "basic_chat"}
-
-    # 자소서 검증/평가 요청 시 최우선 순위로 자소서 검증 노드로 라우팅
-    if any(k in input_clean for k in ["검증", "평가", "첨삭", "피드백", "판별"]):
-        return {"intent": "resume_verify"}
-
-    # 일반 자소서/이력서 단어가 포함되면 자소서 작성 온보딩 노드로 라우팅
-    if any(
-        k in input_clean
-        for k in [
-            "이력서",
-            "자기소개서",
-            "자소서",
-            "경력",
-            "면접",
-            "처음부터",
-            "자소서 보여줘",
-            "저장된 자소서",
-        ]
-    ):
-        return {"intent": "resume_gen"}
-
-    # 교육 신청/준비 가이드 키워드
-    if (
-        (
-            any(
-                k in input_clean
-                for k in ["교육", "강의", "강좌", "과정", "훈련", "직업훈련", "수강"]
-            )
-            and any(
-                k in input_clean
-                for k in [
-                    "가이드",
-                    "준비",
-                    "신청",
-                    "방법",
-                    "어떻게",
-                    "서류",
-                    "수료",
-                    "이후",
-                ]
-            )
-        )
-        or any(
-            k in input_clean
-            for k in [
-                "신청 가이드",
-                "준비 가이드",
-                "신청 준비",
-                "교육 신청",
-                "신청하고 싶어",
-                "어떻게 신청",
-            ]
-        )
-        or any(
-            re.search(r"\d+번\s*(교육|과정)?\s*(신청|가이드|준비)", input_clean)
-            for _ in [0]
-        )
-    ):
-        return {"intent": "edu_guide"}
-
-    # 교육 추천 키워드
-    if any(
-        k in input_clean
-        for k in [
-            "교육",
-            "강의",
-            "강좌",
-            "과정",
-            "훈련",
-            "직업훈련",
-            "배우",
-            "수업",
-            "디지털역량",
-        ]
-    ):
-        return {"intent": "edu_recommend"}
-
-    # 일자리 검색 키워드
-    if any(
-        k in input_clean
-        for k in ["일자리", "알바", "취업", "구인", "공고", "일할", "채용", "추천"]
-    ):
-        return {"intent": "job_search"}
-
-    # 4. LLM 기반 의도 분류 (하드코딩 키워드로 걸러지지 않는 애매한 일상 발화 분류)
-    # - 빠르고 비용이 저렴한 gpt-4o-mini(llm_fast) 모델을 활용하여 분류합니다.
     system_prompt = (
         "당신은 중장년층 구직자 지원 시스템의 의도 분석가입니다.\n"
-        "아래 사용자 발화를 분류하여 다음 카테고리 단어 중 '오직 한 단어'로만 답변하십시오:\n"
+        "아래 사용자 발화를 다음 카테고리 중 하나로만 분류하세요:\n"
         "(resume_gen, resume_verify, job_search, edu_recommend, edu_guide, apply_guide, basic_chat)\n"
-        "다른 서술어나 기호, 백틱(```) 등은 포함하지 마십시오."
+        "다른 설명 없이 카테고리 단어 하나만 답하세요."
     )
 
     try:
-        response = await llm_fast.ainvoke(
-            f"{system_prompt}\n\n사용자 발화: {user_input}"
-        )
-        res_text = get_content(response)
-
-        # 알파벳만 남기고 정규식으로 안전하게 청소
-        cleaned_intent = re.sub(r"[^a-zA-Z_]", "", res_text)
-
+        response = await llm_fast.ainvoke(f"{system_prompt}\n\n사용자 발화: {user_input}")
+        cleaned_intent = re.sub(r"[^a-zA-Z_]", "", get_content(response))
         if cleaned_intent in IntentEnum.__members__:
-            analyzed_intent = cleaned_intent
-        else:
-            analyzed_intent = "basic_chat"
-    except Exception as e:
-        print(f"[Intent LLM Error] 의도 분석 실패: {e}")
-        analyzed_intent = "basic_chat"
+            return {"intent": cleaned_intent}
+    except Exception as exc:
+        print(f"[Intent LLM Error] {exc}")
 
-    return {"intent": analyzed_intent}
+    return {"intent": "basic_chat"}
