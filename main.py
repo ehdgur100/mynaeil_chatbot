@@ -1,10 +1,19 @@
-from fastapi import FastAPI, BackgroundTasks, Request
-from langchain_core.messages import HumanMessage
-from graph import app_graph
-import database.operations as db_ops
-import httpx
-import asyncio
 import re
+import sys
+
+import httpx
+from fastapi import BackgroundTasks, FastAPI, Request
+from langchain_core.messages import HumanMessage
+
+from graph import app_graph
+
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 
 app = FastAPI(title="나의내일 챗봇 API")
 
@@ -14,7 +23,7 @@ _ERROR_BODY = {
         "outputs": [
             {
                 "simpleText": {
-                    "text": "처리 도중 오류가 발생했어요. 다시 시도해 주세요 😥"
+                    "text": "처리 중 오류가 발생했어요. 다시 시도해 주세요."
                 }
             }
         ]
@@ -22,65 +31,29 @@ _ERROR_BODY = {
 }
 
 
-def is_slow_request(user_id: str, user_message: str) -> tuple[bool, str]:
-    """
-    [느린 작업 판별기]
-    사용자의 입력 메시지와 프로필 상태를 분석해서,
-    답변을 만드는 데 5초 이상 오래 걸리는 무거운 작업(자소서 생성/검증, 맞춤 교육 가이드 등)인지 확인합니다.
-    """
-    input_clean = user_message.strip().lower()
-
-    # 1. 명시적인 자소서 검증/첨삭/수정/피드백 키워드가 존재하면 느린 요청으로 취급
-    if any(
-        k in input_clean
-        for k in ["검증", "평가", "첨삭", "피드백", "판별", "수정", "고쳐"]
-    ):
-        return True
-
-    # 2. LLM 맞춤형 교육 신청 및 준비 가이드(edu_guide) 요청인지 체크
-    if any(
-        k in input_clean
-        for k in ["신청 가이드", "준비 가이드", "신청 준비", "교육 신청", "어떻게 신청"]
-    ) or any(re.search(r"\d+번\s*(교육|과정)?\s*(신청|가이드|준비)", input_clean) for _ in [0]):
-        return (
-            True,
-            "교육 신청 및 준비 가이드를 맞춤형으로 작성 중이에요. 잠시만 기다려주세요 📝",
-        )
-
-    # 3. 온보딩 7개의 질문을 모두 마친 상태에서 마지막 자소서를 만드는 시점인지 체크
-    try:
-        profile = db_ops.get_user_profile(user_id)
-        if profile:
-            step = profile.get("step", 0)
-            resume_status = profile.get("resume_status")
-
-            # step 5(강점 입력) 완료 시 공고 추천 벡터 검색이 수반되므로 느린 요청으로 처리
-            if step == 5 and not any(
-                k in input_clean for k in ["처음부터", "초기화", "다시 시작"]
-            ):
-                return True
-
-            # 자소서 온보딩 9단계(마지막 단계 step == 8) 완료 응답인 경우 (단, 처음부터 등 초기화 키워드 제외)
-            if step == 8 and not any(
-                k in input_clean for k in ["처음부터", "초기화", "다시 시작"]
-            ):
-                return True
-
-            # 자소서 수정 모드(editing)이거나 완료된 후(done) 사용자가 자소서 수정을 직접 타이핑하는 경우
-            if resume_status in ("editing", "done"):
-                # 완료, 처음부터 등의 퀵 버튼은 동기(빠른) 처리 대상
-                if not any(k in input_clean for k in ["완료", "처음부터", "초기화"]):
-                    return True
-    except Exception as e:
-        print(f"[is_slow_request check error] {e}")
-
-    return False
+def is_slow_request(user_id: str, user_message: str) -> bool:
+    message_clean = user_message.strip().lower()
+    slow_keywords = [
+        "검증",
+        "평가",
+        "첨삭",
+        "피드백",
+        "자소서 수정",
+        "교육 신청 가이드",
+        "신청 준비",
+    ]
+    numbered_edu_guide = re.search(
+        r"\d+\s*번\s*(교육|과정)?\s*(신청|가이드|준비)", message_clean
+    )
+    return any(keyword in message_clean for keyword in slow_keywords) or bool(
+        numbered_edu_guide
+    )
 
 
 async def _run_graph_with_callback(
     user_id: str, user_message: str, callback_url: str
 ) -> None:
-    print(f"[Background] 그래프 실행 시작 (user: {user_id[:16]})")
+    print(f"[Background] graph start user={user_id[:16]}")
     try:
         initial_state = {
             "messages": [HumanMessage(content=user_message)],
@@ -96,13 +69,13 @@ async def _run_graph_with_callback(
         kakao_resp = final_state.get("kakao_response") or _ERROR_BODY
         async with httpx.AsyncClient() as client:
             resp = await client.post(callback_url, json=kakao_resp, timeout=10.0)
-            print(f"[Background] 콜백 전송 완료 (상태: {resp.status_code})")
-    except Exception as e:
-        print(f"[Background] 실패: {e}")
+            print(f"[Background] callback sent status={resp.status_code}")
+    except Exception as exc:
+        print(f"[Background] failed: {exc}")
         try:
             async with httpx.AsyncClient() as client:
                 await client.post(callback_url, json=_ERROR_BODY, timeout=5.0)
-        except:
+        except Exception:
             pass
 
 
@@ -114,20 +87,21 @@ async def chat_endpoint(request: Request, background_tasks: BackgroundTasks):
     user_id = user_request.get("user", {}).get("id", "unknown_user")
     callback_url = user_request.get("callbackUrl") or raw.get("callbackUrl")
 
-    print(f"[알림] '{user_message}' | user: {user_id[:16]}...")
+    try:
+        print(f"[chat] '{user_message}' | user={user_id[:16]}...")
+    except Exception:
+        pass
 
-    slow = is_slow_request(user_id, user_message)
-    if callback_url and slow:
+    if callback_url and is_slow_request(user_id, user_message):
         background_tasks.add_task(
             _run_graph_with_callback, user_id, user_message, callback_url
         )
         return {
             "version": "2.0",
             "useCallback": True,
-            "data": {"text": "처리 중이에요. 잠시만 기다려주세요 ✍️"},
+            "data": {"text": "처리 중이에요. 잠시만 기다려 주세요."},
         }
 
-    # callbackUrl 없는 경우 (테스트 환경): 동기 처리
     try:
         initial_state = {
             "messages": [HumanMessage(content=user_message)],
@@ -141,8 +115,8 @@ async def chat_endpoint(request: Request, background_tasks: BackgroundTasks):
             config={"configurable": {"thread_id": user_id}},
         )
         return final_state.get("kakao_response") or _ERROR_BODY
-    except Exception as e:
-        print(f"[chat_endpoint] 오류: {e}")
+    except Exception as exc:
+        print(f"[chat_endpoint] error: {exc}")
         return _ERROR_BODY
 
 
@@ -153,31 +127,14 @@ async def recommend_endpoint(request: Request):
         user_request = raw.get("userRequest", {})
         user_id = user_request.get("user", {}).get("id", "unknown_user")
 
-        print(f"[추천 API 호출] user_id: {user_id}")
-
-        # recommend.py의 함수들을 호출하여 추천 공고를 가져오고 캐러셀로 변환합니다.
+        print(f"[recommend] user_id={user_id}")
         from data_pipeline import recommend
 
-        # 유저 ID를 기반으로 추천 공고 Top 5 가져오기
         jobs = await recommend.recommend_jobs_for_user(user_id, limit=5)
-
-        # 카카오톡 캐러셀 JSON 포맷으로 변환 후 응답
         return recommend.build_kakao_carousel_response(jobs)
-
-    except Exception as e:
-        print(f"[추천 API 에러] {e}")
-        return {
-            "version": "2.0",
-            "template": {
-                "outputs": [
-                    {
-                        "simpleText": {
-                            "text": "추천 공고를 불러오는 중 오류가 발생했습니다. 다시 시도해 주세요."
-                        }
-                    }
-                ]
-            },
-        }
+    except Exception as exc:
+        print(f"[recommend] error: {exc}")
+        return _ERROR_BODY
 
 
 @app.get("/")
