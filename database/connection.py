@@ -4,6 +4,16 @@ import config
 
 supabase: Client = None
 
+for proxy_env_name in (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+):
+    os.environ.pop(proxy_env_name, None)
+
 try:
     if config.SUPABASE_URL and config.SUPABASE_KEY:
         supabase = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
