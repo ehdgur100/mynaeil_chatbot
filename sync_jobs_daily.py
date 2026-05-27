@@ -56,6 +56,8 @@ def main() -> int:
             [
                 PYTHON,
                 "crawl_50plus_jobs.py",
+                "--biz-se",
+                "IN49008",
                 "--output-dir",
                 "data/50plus_private_applying",
             ]
