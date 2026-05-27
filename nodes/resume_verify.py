@@ -58,13 +58,12 @@ async def resume_verify(state: AgentState) -> Dict[str, Any]:
     
     msg = (
         "자기소개서가 완성되었습니다! 🎉\n"
-        "인사담당자들의 최신 취업 조언을 반영하여 가장 설득력 있게 다듬은 완성본입니다. 😊\n\n"
-        "이 공고에 어떻게 지원하는지 안내해드릴까요?"
+        "인사담당자들의 최신 취업 조언을 반영하여 가장 설득력 있게 다듬은 완성본입니다. 😊"
     )
     kakao_response["template"]["outputs"].append({"simpleText": {"text": msg}})
     kakao_response["template"]["quickReplies"] = [
-        {"action": "message", "label": "네, 알려주세요", "messageText": "네, 알려주세요"},
-        {"action": "message", "label": "괜찮아요", "messageText": "괜찮아요"}
+        {"action": "message", "label": "완료", "messageText": "완료"},
+        {"action": "message", "label": "처음부터", "messageText": "처음부터"},
     ]
 
     return {

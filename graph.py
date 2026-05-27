@@ -18,7 +18,6 @@ def route_intent(state: AgentState) -> str:
         "job_search",  # 일자리 검색 및 추천
         "edu_recommend",
         "edu_guide",
-        "apply_guide",  # 구직/면접 가이드북
         "basic_chat",  # 일반 인사 및 대화 (기본 대기실)
     ]
 
@@ -69,7 +68,6 @@ workflow.add_edge("resume_verify", END)
 workflow.add_edge("job_search", END)
 workflow.add_edge("edu_recommend", END)
 workflow.add_edge("edu_guide", END)
-workflow.add_edge("apply_guide", END)
 workflow.add_edge("basic_chat", END)
 
 # 4. 대화 기록을 기억할 메모리 장치(체크포인터)를 활성화합니다.

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, BackgroundTasks, Request
 from langchain_core.messages import HumanMessage
 from graph import app_graph
+import database.operations as db_ops
 import httpx
 import asyncio
 import re
@@ -31,7 +32,7 @@ def is_slow_request(user_id: str, user_message: str) -> tuple[bool, str]:
 
     # 1. 명시적인 자소서 검증/첨삭/수정/피드백 키워드가 존재하면 느린 요청으로 취급
     if any(
-        k in message_clean
+        k in input_clean
         for k in ["검증", "평가", "첨삭", "피드백", "판별", "수정", "고쳐"]
     ):
         return True
@@ -53,16 +54,22 @@ def is_slow_request(user_id: str, user_message: str) -> tuple[bool, str]:
             step = profile.get("step", 0)
             resume_status = profile.get("resume_status")
 
+            # step 5(강점 입력) 완료 시 공고 추천 벡터 검색이 수반되므로 느린 요청으로 처리
+            if step == 5 and not any(
+                k in input_clean for k in ["처음부터", "초기화", "다시 시작"]
+            ):
+                return True
+
             # 자소서 온보딩 9단계(마지막 단계 step == 8) 완료 응답인 경우 (단, 처음부터 등 초기화 키워드 제외)
             if step == 8 and not any(
-                k in message_clean for k in ["처음부터", "초기화", "다시 시작"]
+                k in input_clean for k in ["처음부터", "초기화", "다시 시작"]
             ):
                 return True
 
             # 자소서 수정 모드(editing)이거나 완료된 후(done) 사용자가 자소서 수정을 직접 타이핑하는 경우
             if resume_status in ("editing", "done"):
                 # 완료, 처음부터 등의 퀵 버튼은 동기(빠른) 처리 대상
-                if not any(k in message_clean for k in ["완료", "처음부터", "초기화"]):
+                if not any(k in input_clean for k in ["완료", "처음부터", "초기화"]):
                     return True
     except Exception as e:
         print(f"[is_slow_request check error] {e}")
