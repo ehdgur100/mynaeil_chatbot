@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 from database.connection import supabase
 from . import resume
+import database.operations as db_ops
 
 
 @dataclass
@@ -327,6 +328,12 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
 
         # 추천 공고 직후의 입력 이벤트 분기 처리 (step 6 진입 유도)
         if user is not None and user.get("resume_status") == "jobs_recommended":
+            if stripped.startswith("공고선택:"):
+                job_id = stripped.split(":", 1)[1]
+                try:
+                    db_ops.save_selected_job_id(user_id, job_id)
+                except Exception as e:
+                    print(f"[selected_job_id 저장 실패] {e}")
             _update_resume_status(user_id, "none")
             return _build_response(STEPS[6]["question"], STEPS[6]["quick_replies"])
 
@@ -429,10 +436,14 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 msg = (
                     f"🔍 입력해주신 정보를 바탕으로 찾은 맞춤 일자리예요! 💼\n\n"
                     f"{job_list_str.strip()}\n\n"
-                    f"이 일자리에 바로 지원하실 수 있도록 맞춤형 자기소개서를 완성해 드릴까요? 😊\n"
-                    f"아래 버튼을 누르시면 남은 3가지 질문을 이어갈게요!"
+                    f"지원하고 싶은 공고를 선택하시면 맞춤 자기소개서를 완성해 드려요! 😊"
                 )
-                return _build_response(msg, ["이어서 자소서 작성하기", "처음부터"])
+                job_buttons = [
+                    {"action": "message", "label": f"📌 {i+1}번 공고 선택", "messageText": f"공고선택:{job.get('id')}"}
+                    for i, job in enumerate(recommended) if job.get("id")
+                ]
+                job_buttons.append({"action": "message", "label": "처음부터", "messageText": "처음부터"})
+                return _build_response(msg, job_buttons)
             else:
                 msg = (
                     f"입력해주신 정보를 기반으로 주변 일자리를 열심히 조회해보았으나, 현재 딱 맞는 공고가 조회되지 않네요 😥\n\n"
