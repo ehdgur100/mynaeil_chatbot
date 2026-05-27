@@ -3,6 +3,7 @@ from typing import Optional
 from database.connection import supabase
 from . import resume
 import database.operations as db_ops
+from nodes.navigation import is_previous_request, main_menu_response
 
 
 @dataclass
@@ -246,6 +247,46 @@ def _get_resume(user_id: str) -> Optional[dict]:
 async def handle_onboarding(user_id: str, user_input: str) -> dict:
     try:
         stripped = user_input.strip()
+
+        if is_previous_request(stripped):
+            try:
+                user = _get_user(user_id)
+            except Exception:
+                user = None
+
+            if user is None:
+                return main_menu_response(
+                    "이전 단계가 없어 처음 화면으로 돌아갈게요.\n\n"
+                    "아래 메뉴 중 필요한 기능을 선택해주세요."
+                )
+
+            resume_status = user.get("resume_status", "none") or "none"
+            if resume_status == "jobs_recommended":
+                if supabase is not None:
+                    supabase.table("users").update(
+                        {"step": 5, "resume_status": "none"}
+                    ).eq("user_id", user_id).execute()
+                return _build_response(
+                    "이전 단계로 돌아갈게요.\n\n" + STEPS[5]["question"],
+                    STEPS[5]["quick_replies"],
+                )
+
+            step = user.get("step", 0) or 0
+            if 0 < step < len(STEPS):
+                previous_step = step - 1
+                if supabase is not None:
+                    supabase.table("users").update(
+                        {"step": previous_step, "resume_status": "none"}
+                    ).eq("user_id", user_id).execute()
+                return _build_response(
+                    "이전 단계로 돌아갈게요.\n\n" + STEPS[previous_step]["question"],
+                    STEPS[previous_step]["quick_replies"],
+                )
+
+            return main_menu_response(
+                "이전 단계가 없어 처음 화면으로 돌아갈게요.\n\n"
+                "아래 메뉴 중 필요한 기능을 선택해주세요."
+            )
 
         # "처음부터" 입력 시 언제든 초기화
         if stripped == "처음부터":

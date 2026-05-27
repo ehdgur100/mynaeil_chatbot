@@ -6,6 +6,7 @@ from fastapi import BackgroundTasks, FastAPI, Request
 from langchain_core.messages import HumanMessage
 
 from graph import app_graph
+from nodes.navigation import add_navigation_buttons
 
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -66,7 +67,7 @@ async def _run_graph_with_callback(
             initial_state,
             config={"configurable": {"thread_id": user_id}},
         )
-        kakao_resp = final_state.get("kakao_response") or _ERROR_BODY
+        kakao_resp = add_navigation_buttons(final_state.get("kakao_response") or _ERROR_BODY)
         async with httpx.AsyncClient() as client:
             resp = await client.post(callback_url, json=kakao_resp, timeout=10.0)
             print(f"[Background] callback sent status={resp.status_code}")
@@ -114,7 +115,7 @@ async def chat_endpoint(request: Request, background_tasks: BackgroundTasks):
             initial_state,
             config={"configurable": {"thread_id": user_id}},
         )
-        return final_state.get("kakao_response") or _ERROR_BODY
+        return add_navigation_buttons(final_state.get("kakao_response") or _ERROR_BODY)
     except Exception as exc:
         print(f"[chat_endpoint] error: {exc}")
         return _ERROR_BODY

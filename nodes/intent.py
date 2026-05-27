@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from database.operations import get_user_profile
 from nodes.base import IntentEnum, get_content, llm_fast
+from nodes.navigation import is_home_request, is_previous_request
 from state import AgentState
 
 
@@ -46,7 +47,41 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     user_input = messages[-1].content if messages else ""
     text = user_input.strip().lower()
 
+    if is_home_request(user_input):
+        return {"intent": "basic_chat"}
+
     if _contains_any(text, GREETING_WORDS):
+        return {"intent": "basic_chat"}
+
+    if is_previous_request(user_input):
+        recent_text = "\n".join(
+            str(getattr(message, "content", ""))
+            for message in messages[:-1][-4:]
+        )
+        if any(
+            keyword in recent_text
+            for keyword in ("교육 추천", "교육 신청", "신청마감일", "모집시작일")
+        ):
+            return {"intent": "edu_recommend"}
+
+        try:
+            profile = get_user_profile(user_id)
+            if profile:
+                resume_status = profile.get("resume_status", "none") or "none"
+                if resume_status.startswith("edu_"):
+                    return {"intent": "edu_recommend"}
+
+                step = profile.get("step", 0) or 0
+                if 0 < step < 9 or resume_status in (
+                    "jobs_recommended",
+                    "generated",
+                    "reviewed",
+                    "editing",
+                    "done",
+                ):
+                    return {"intent": "resume_gen"}
+        except Exception as exc:
+            print(f"[Intent Previous Warning] profile check failed: {exc}")
         return {"intent": "basic_chat"}
 
     if _is_education_guide(text):

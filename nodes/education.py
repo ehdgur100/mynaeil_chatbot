@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage
 
 import database.operations as db_ops
 from database.connection import supabase
+from nodes.navigation import is_previous_request, main_menu_response
 from state import AgentState
 
 
@@ -400,6 +401,120 @@ async def edu_recommend(state: AgentState) -> Dict[str, Any]:
             profile = {}
 
     resume_status = profile.get("resume_status", "none") or "none"
+
+    if is_previous_request(user_input):
+        if resume_status == "edu_step2":
+            try:
+                supabase.table("users").update({"resume_status": "edu_step1"}).eq("user_id", user_id).execute()
+            except Exception as e:
+                print(f"[Edu Previous Step Error] {e}")
+            text = (
+                "이전 단계로 돌아갈게요.\n\n"
+                "희망하시는 직무(분야)가 무엇인가요?\n"
+                "아래 버튼을 선택하거나 직접 입력해 주세요."
+            )
+            quick_replies = ["생산·제조", "돌봄·요양", "청소·환경미화", "경비·시설관리", "배달·운전", "사무·행정", "상관없음"]
+            return {
+                "messages": [AIMessage(content=text)],
+                "kakao_response": {
+                    "version": "2.0",
+                    "template": {
+                        "outputs": [{"simpleText": {"text": text}}],
+                        "quickReplies": [
+                            {"action": "message", "label": label, "messageText": label}
+                            for label in quick_replies
+                        ],
+                    },
+                },
+                "intent": "edu_recommend",
+            }
+
+        if resume_status == "edu_step3":
+            try:
+                supabase.table("users").update({"resume_status": "edu_step2"}).eq("user_id", user_id).execute()
+            except Exception as e:
+                print(f"[Edu Previous Step Error] {e}")
+            text = (
+                "이전 단계로 돌아갈게요.\n\n"
+                "디지털 역량 수준은 어느 정도이신가요?\n"
+                "아래 버튼에서 선택하거나 직접 입력해 주세요! 💻"
+            )
+            quick_replies = ["왕초보/기초", "일반/스마트폰 활용", "컴퓨터/엑셀 활용", "AI/챗GPT 활용", "상관없음"]
+            return {
+                "messages": [AIMessage(content=text)],
+                "kakao_response": {
+                    "version": "2.0",
+                    "template": {
+                        "outputs": [{"simpleText": {"text": text}}],
+                        "quickReplies": [
+                            {"action": "message", "label": label, "messageText": label}
+                            for label in quick_replies
+                        ],
+                    },
+                },
+                "intent": "edu_recommend",
+            }
+
+        if profile.get("skills"):
+            try:
+                supabase.table("users").update({"resume_status": "edu_step3"}).eq("user_id", user_id).execute()
+            except Exception as e:
+                print(f"[Edu Previous Step Error] {e}")
+            text = (
+                "이전 단계로 돌아갈게요.\n\n"
+                "주로 어느 거주지역에서 교육을 받고 싶으신가요? 📍\n"
+                "아래 버튼을 선택하거나 직접 입력해 주세요."
+            )
+            quick_replies = ["서울 전체", "서울 강서구", "서울 마포구", "서울 서초구", "상관없음"]
+            return {
+                "messages": [AIMessage(content=text)],
+                "kakao_response": {
+                    "version": "2.0",
+                    "template": {
+                        "outputs": [{"simpleText": {"text": text}}],
+                        "quickReplies": [
+                            {"action": "message", "label": label, "messageText": label}
+                            for label in quick_replies
+                        ],
+                    },
+                },
+                "intent": "edu_recommend",
+            }
+
+        if profile.get("desired_job"):
+            try:
+                supabase.table("users").update({"resume_status": "edu_step2"}).eq("user_id", user_id).execute()
+            except Exception as e:
+                print(f"[Edu Previous Step Error] {e}")
+            text = (
+                "이전 단계로 돌아갈게요.\n\n"
+                "디지털 역량 수준은 어느 정도이신가요?\n"
+                "아래 버튼에서 선택하거나 직접 입력해 주세요! 💻"
+            )
+            quick_replies = ["왕초보/기초", "일반/스마트폰 활용", "컴퓨터/엑셀 활용", "AI/챗GPT 활용", "상관없음"]
+            return {
+                "messages": [AIMessage(content=text)],
+                "kakao_response": {
+                    "version": "2.0",
+                    "template": {
+                        "outputs": [{"simpleText": {"text": text}}],
+                        "quickReplies": [
+                            {"action": "message", "label": label, "messageText": label}
+                            for label in quick_replies
+                        ],
+                    },
+                },
+                "intent": "edu_recommend",
+            }
+
+        return {
+            "messages": [AIMessage(content="이전 단계가 없어 처음 화면으로 돌아갈게요.")],
+            "kakao_response": main_menu_response(
+                "이전 단계가 없어 처음 화면으로 돌아갈게요.\n\n"
+                "아래 메뉴 중 필요한 기능을 선택해주세요."
+            ),
+            "intent": "basic_chat",
+        }
 
     # 만약 사용자가 교육 추천 메뉴 자체를 처음 클릭하거나, 상태가 비어있다면 온보딩 1단계 시작
     if (
