@@ -6,6 +6,7 @@ from typing import Any
 
 HOME_LABEL = "처음으로"
 PREVIOUS_LABEL = "이전단계"
+HOME_ALIASES = {"처음으로", "처음부터", "처음", "메인", "홈"}
 HOME_REQUESTS = {"처음으로", "처음", "메인", "홈"}
 PREVIOUS_REQUESTS = {"이전단계", "이전 단계", "뒤로", "이전"}
 
@@ -47,6 +48,33 @@ def _is_main_menu_response(response: dict[str, Any]) -> bool:
     return actual == expected
 
 
+def _reply_text(reply: dict[str, Any]) -> str:
+    return str(reply.get("messageText") or reply.get("label") or "").strip()
+
+
+def _dedupe_navigation_replies(
+    quick_replies: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    cleaned: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    has_home = False
+
+    for reply in quick_replies:
+        text = _reply_text(reply)
+        if text in HOME_ALIASES:
+            if has_home:
+                continue
+            has_home = True
+            seen.add("home")
+        elif text in seen:
+            continue
+        else:
+            seen.add(text)
+        cleaned.append(reply)
+
+    return cleaned
+
+
 def add_navigation_buttons(response: dict[str, Any] | None) -> dict[str, Any] | None:
     if not response or not isinstance(response, dict):
         return response
@@ -56,12 +84,19 @@ def add_navigation_buttons(response: dict[str, Any] | None) -> dict[str, Any] | 
     result = deepcopy(response)
     template = result.setdefault("template", {})
     quick_replies = template.setdefault("quickReplies", [])
-    existing = {reply.get("messageText") for reply in quick_replies}
+    quick_replies = _dedupe_navigation_replies(quick_replies)
+    template["quickReplies"] = quick_replies
+    existing = {_reply_text(reply) for reply in quick_replies}
+    has_home = any(text in HOME_ALIASES for text in existing)
 
-    for label in (HOME_LABEL, PREVIOUS_LABEL):
-        if label not in existing:
-            quick_replies.append(
-                {"action": "message", "label": label, "messageText": label}
-            )
+    if not has_home:
+        quick_replies.append(
+            {"action": "message", "label": HOME_LABEL, "messageText": HOME_LABEL}
+        )
+
+    if PREVIOUS_LABEL not in existing:
+        quick_replies.append(
+            {"action": "message", "label": PREVIOUS_LABEL, "messageText": PREVIOUS_LABEL}
+        )
 
     return result
