@@ -519,11 +519,17 @@ async def resume_gen(state: dict) -> dict:
     if isinstance(result, ResumeTask):
         if result.user_data is not None:
             try:
-                # 1. 초안 자소서를 작성해 DB에 임시 저장
-                resume_text = await resume.generate_resume_with_tips(result.user_data)
+                # 1. 사용자가 고른 맞춤형 공고 정보 조회
+                selected_job_id = result.user_data.get("selected_job_id")
+                job_details = None
+                if selected_job_id:
+                    job_details = db_ops.get_job_by_id(selected_job_id)
+
+                # 2. 초안 자소서를 작성해 DB에 임시 저장 (공고 정보 동적 반영)
+                resume_text = await resume.generate_resume_with_tips(result.user_data, job_details)
                 _save_resume(result.user_id, result.user_data.get("desired_job") or "", resume_text)
                 
-                # 2. 첨삭 노드로 즉각 체이닝하여 최종 첨삭본을 빌드하도록 유도
+                # 3. 첨삭 노드로 즉각 체이닝하여 최종 첨삭본을 빌드하도록 유도
                 return {
                     "intent": "resume_verify",
                     "messages": state.get("messages", [])

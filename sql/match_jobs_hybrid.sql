@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION public.match_jobs_hybrid(
   match_count int
 )
 RETURNS TABLE (
-  id bigint,
+  id text, -- ID 타입을 text로 변경하여 접두사를 포함할 수 있도록 함
   title text,
   company text,
   content text,
@@ -28,7 +28,7 @@ BEGIN
   WITH combined_jobs AS (
     -- A. jobs 테이블
     SELECT
-      j.id,
+      'jobs_' || j.id::text AS id,
       j.title,
       j.company,
       j.content,
@@ -44,7 +44,7 @@ BEGIN
 
     -- B. jobs3 테이블
     SELECT
-      j3.id,
+      'jobs3_' || j3.id::text AS id,
       j3.title,
       j3.company,
       j3.content,
@@ -60,7 +60,7 @@ BEGIN
     
     -- C. job_seoul_50 테이블
     SELECT
-      s.id,
+      'seoul_' || s.id::text AS id,
       s.title,
       s.company_or_org AS company,
       s.occupation_name AS content,

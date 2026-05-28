@@ -35,9 +35,15 @@ async def resume_verify(state: AgentState) -> Dict[str, Any]:
 
     # 2. 내장된 꿀팁을 반영하여 자소서 최종 수정본 작성
     profile = db_ops.get_user_profile(user_id) or {}
+    selected_job_id = profile.get("selected_job_id")
+    job_details = None
+    if selected_job_id:
+        job_details = db_ops.get_job_by_id(selected_job_id)
+
     try:
         revised_resume = await resume.generate_resume_with_tips(
             profile, 
+            job_details,
             f"기존 자소서 본문:\n{resume_content}\n\n위 기존 자소서를 분석하여 누락된 조언들을 마저 적용해 더 완성도 높은 자소서로 고쳐 써주세요."
         )
     except Exception as e:

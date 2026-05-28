@@ -1,8 +1,8 @@
 import re
 import html as html_module
 import httpx
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from nodes.base import llm_smart
 import config
 
 _SYSTEM_PROMPT = """당신은 50~60대 신중년 구직자의 취업을 돕는
@@ -78,7 +78,7 @@ async def get_apply_guide(job: dict) -> str:
     if source_url and source_url.startswith(("http://", "https://")):
         page_text = await _fetch_page_text(source_url)
 
-    llm = ChatOpenAI(model="gpt-4o-mini", api_key=config.OPENAI_API_KEY)
+    llm = llm_smart
     user_prompt = _USER_TEMPLATE.format(
         company=job.get("company") or "정보 없음",
         title=job.get("title") or "정보 없음",
