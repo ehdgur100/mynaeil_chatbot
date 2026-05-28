@@ -84,14 +84,25 @@ def crawl_jobs(limit: int | None, biz_se: str | None) -> tuple[list[dict[str, An
 
     target_count = min(total_count, limit) if limit else total_count
     jobs: list[dict[str, Any]] = []
+    
+    # Get today's date string in YYYYMMDD format
+    today_str = datetime.now().strftime("%Y%m%d")
 
     for page in range(1, total_pages + 1):
         payload = first_page if page == 1 else request_page(session, page, biz_se)
         for row in payload.get("list", []):
+            apply_end = row.get("APPDURNG_EDTM", "")
+            
+            # Check if apply_end date is before today
+            if apply_end and len(apply_end) >= 8:
+                end_date_str = apply_end[:8]
+                if end_date_str < today_str:
+                    continue  # Skip jobs with past deadlines
+            
             jobs.append(normalize_job(row))
             if len(jobs) >= target_count:
                 return jobs, pagination
-        print(f"Fetched {len(jobs):>3}/{target_count} rows")
+        print(f"Fetched {len(jobs):>3} valid rows from page {page}")
 
     return jobs, pagination
 

@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import requests
+import argparse
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -16,6 +17,17 @@ if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
 from database.connection import supabase
+
+
+for proxy_env_name in (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+):
+    os.environ.pop(proxy_env_name, None)
 
 def crawl_and_insert_jobs_massive(target_count=2000):
     """
@@ -152,4 +164,7 @@ def crawl_and_insert_jobs_massive(target_count=2000):
 
 if __name__ == "__main__":
     # 최대 2000건 수집
-    crawl_and_insert_jobs_massive(target_count=2000)
+    parser = argparse.ArgumentParser(description="Crawl Worknet jobs into Supabase jobs.")
+    parser.add_argument("--target-count", type=int, default=2000)
+    args = parser.parse_args()
+    crawl_and_insert_jobs_massive(target_count=args.target_count)

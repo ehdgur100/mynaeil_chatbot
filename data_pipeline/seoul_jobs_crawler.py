@@ -2,6 +2,7 @@ import sys
 import os
 import requests
 import json
+import argparse
 from datetime import datetime
 
 # config와 database 모듈의 경로를 찾아서 sys.path에 추가
@@ -13,17 +14,27 @@ import config
 from database.connection import supabase
 
 
-def run_seoul_crawler():
+for proxy_env_name in (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+):
+    os.environ.pop(proxy_env_name, None)
+
+
+def run_seoul_crawler(target_count=3000):
     if not supabase:
         print("[Error] Supabase 클라이언트가 초기화되지 않았습니다.")
         return
 
-    # 끝에 불필요하게 중복된 '4'를 제거한 올바른 API Key
-    api_key = "4d456c704c6b686a3132304b4f4c7a4c4"[:-1]
+    api_key = config.SEOUL_JOB_API_KEY or "4d456c704c6b686a3132304b4f4c7a4c"
+    public_base_url = config.PUBLIC_BASE_URL
 
     start_idx = 1
     chunk_size = 1000  # 한 번에 가져올 개수 (서울시 API 최대 1000)
-    target_count = 3000  # 일단 3천개 정도만 수집해봅시다 (너무 많으면 오래 걸림)
     success_count = 0
 
     print("서울시 일자리포털 채용정보 API 크롤러 시작...")
@@ -57,26 +68,69 @@ def run_seoul_crawler():
                 salary = row.get("HOPE_WAGE", "")
                 career = row.get("CAREER_CND_NM", "")
                 emp_type = row.get("EMPLYM_STLE_CMMN_MM", "")
+                job_category = row.get("JOBCODE_NM", "")
 
                 # 상세 정보 병합 (내용)
                 job_desc = row.get("DTY_CN", "").strip()
                 work_time = row.get("WORK_TIME_NM", "").strip()
                 deadline = row.get("RCEPT_CLOS_NM", "").strip()
+                recruit_count = row.get("RCRIT_NMPR_CO", "")
+                education = row.get("ACDMCR_NM", "")
+                holiday = row.get("HOLIDAY_NM", "")
+                weekly_hours = row.get("WEEK_WORK_HR", "")
+                insurance = row.get("JO_FEINSR_SBSCRB_NM", "")
+                apply_method = row.get("RCEPT_MTH_NM", "").strip()
+                screening = row.get("MODEL_MTH_NM", "").strip()
+                papers = row.get("PRESENTN_PAPERS_NM", "").strip()
+                manager_org = row.get("MNGR_INSTT_NM", "")
+                company_address = row.get("BASS_ADRES_CN", "")
+                summary = row.get("GUI_LN", "")
 
                 content_parts = []
+                if summary:
+                    content_parts.append(f"[요약]\n{summary}")
+                if job_category:
+                    content_parts.append(f"[모집직종]\n{job_category}")
+                if recruit_count:
+                    content_parts.append(f"[모집인원]\n{recruit_count}명")
                 if job_desc:
                     content_parts.append(f"[담당업무]\n{job_desc}")
+                if education or career:
+                    content_parts.append(
+                        f"[지원자격]\n학력: {education or '관계없음'}\n경력: {career or '관계없음'}"
+                    )
+                if location:
+                    content_parts.append(f"[근무지역]\n{location}")
+                if salary:
+                    content_parts.append(f"[급여]\n{salary}")
+                if emp_type:
+                    content_parts.append(f"[고용형태]\n{emp_type}")
                 if work_time:
                     content_parts.append(f"[근무시간] {work_time}")
+                if holiday or weekly_hours:
+                    content_parts.append(
+                        f"[근무조건]\n근무형태: {holiday or '확인 필요'}\n주 근로시간: {weekly_hours or '확인 필요'}"
+                    )
+                if insurance:
+                    content_parts.append(f"[사회보험]\n{insurance}")
+                if apply_method:
+                    content_parts.append(f"[접수방법]\n{apply_method}")
+                if screening:
+                    content_parts.append(f"[전형방법]\n{screening}")
+                if papers:
+                    content_parts.append(f"[제출서류]\n{papers}")
                 if deadline:
                     content_parts.append(f"[접수마감일] {deadline}")
+                if manager_org:
+                    content_parts.append(f"[담당기관]\n{manager_org}")
+                if company_address:
+                    content_parts.append(f"[사업장주소]\n{company_address}")
 
                 full_content = (
                     "\n\n".join(content_parts) if content_parts else "상세 내용 없음"
                 )
 
-                # 서울시 일자리포털 상세 링크 (구인신청번호 활용)
-                full_url = f"seoul_job_{job_id}"
+                full_url = f"{public_base_url}/jobs3/wanted/{job_id}"
 
                 job_data = {
                     "title": title,
@@ -84,10 +138,15 @@ def run_seoul_crawler():
                     "content": full_content,
                     "url": full_url,
                     "created_at": datetime.now().isoformat(),
+                    "external_id": job_id,
                     "location": location,
                     "salary": salary,
                     "career_required": career,
                     "employment_type": emp_type,
+                    "job_category": job_category,
+                    "deadline": deadline,
+                    "apply_method": apply_method,
+                    "source": "서울시 일자리 API",
                 }
 
                 # jobs3 테이블에 upsert
@@ -112,4 +171,7 @@ def run_seoul_crawler():
 
 
 if __name__ == "__main__":
-    run_seoul_crawler()
+    parser = argparse.ArgumentParser(description="Crawl Seoul jobs into Supabase jobs3.")
+    parser.add_argument("--target-count", type=int, default=3000)
+    args = parser.parse_args()
+    run_seoul_crawler(target_count=args.target_count)

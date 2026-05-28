@@ -21,3 +21,7 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 # 고용24 Open API 설정
 WORK24_API_URL = os.environ.get("WORK24_API_URL", "")
 WORK24_AUTH_KEY = os.environ.get("WORK24_AUTH_KEY", "")
+SEOUL_JOB_API_KEY = os.environ.get("SEOUL_JOB_API_KEY", "")
+PUBLIC_BASE_URL = os.environ.get(
+    "PUBLIC_BASE_URL", "https://aviation-scroll-jovial.ngrok-free.dev"
+).rstrip("/")

@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 from database.connection import supabase
 from . import resume
-from nodes.guide import get_apply_guide
 import database.operations as db_ops
+from nodes.navigation import is_previous_request, main_menu_response
 
 
 @dataclass
@@ -248,6 +248,46 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
     try:
         stripped = user_input.strip()
 
+        if is_previous_request(stripped):
+            try:
+                user = _get_user(user_id)
+            except Exception:
+                user = None
+
+            if user is None:
+                return main_menu_response(
+                    "이전 단계가 없어 처음 화면으로 돌아갈게요.\n\n"
+                    "아래 메뉴 중 필요한 기능을 선택해주세요."
+                )
+
+            resume_status = user.get("resume_status", "none") or "none"
+            if resume_status == "jobs_recommended":
+                if supabase is not None:
+                    supabase.table("users").update(
+                        {"step": 5, "resume_status": "none"}
+                    ).eq("user_id", user_id).execute()
+                return _build_response(
+                    "이전 단계로 돌아갈게요.\n\n" + STEPS[5]["question"],
+                    STEPS[5]["quick_replies"],
+                )
+
+            step = user.get("step", 0) or 0
+            if 0 < step < len(STEPS):
+                previous_step = step - 1
+                if supabase is not None:
+                    supabase.table("users").update(
+                        {"step": previous_step, "resume_status": "none"}
+                    ).eq("user_id", user_id).execute()
+                return _build_response(
+                    "이전 단계로 돌아갈게요.\n\n" + STEPS[previous_step]["question"],
+                    STEPS[previous_step]["quick_replies"],
+                )
+
+            return main_menu_response(
+                "이전 단계가 없어 처음 화면으로 돌아갈게요.\n\n"
+                "아래 메뉴 중 필요한 기능을 선택해주세요."
+            )
+
         # "처음부터" 입력 시 언제든 초기화
         if stripped == "처음부터":
             _reset_user(user_id)
@@ -354,47 +394,9 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 )
 
             if resume_status == "done":
-                if stripped == "네, 알려주세요":
-                    profile = db_ops.get_user_profile(user_id) or {}
-                    selected_job_id = profile.get("selected_job_id")
-                    
-                    # 방어 코드: selected_job_id가 없는 테스트 환경일 때 범용 예시 가이드 제공
-                    if not selected_job_id:
-                        dummy_guide = (
-                            "📋 일반적인 구직 지원 방법 안내\n\n"
-                            "[지원 방식] 워크넷 온라인 입사지원 / 이메일 접수\n\n"
-                            "1단계. 먼저 작성된 자기소개서 본문을 길게 눌러 복사해 둡니다.\n"
-                            "2단계. 워크넷(www.work.go.kr)에 접속 후 개인회원으로 로그인합니다.\n"
-                            "3단계. 구직등록이 안 되어 있다면 '구직신청'을 먼저 진행합니다.\n"
-                            "4단계. 희망하시는 공고의 '워크넷 입사지원' 버튼을 누르고 복사해 둔 자소서를 첨부하여 접수합니다.\n\n"
-                            "💡 현재 테스트 계정에 선택된 구인 공고 ID가 없어서 일반적인 안내를 드렸습니다. "
-                            "실제 서비스에서는 상세 공고별 지원 방법이 맞춤형으로 안내됩니다! 😊"
-                        )
-                        return _build_response(dummy_guide, ["📋 기존 자소서 보기", "✨ 새로 작성하기"])
-
-                    job = db_ops.get_job_by_id(str(selected_job_id))
-                    if not job:
-                        # 공고 정보가 DB에 존재하지 않을 때의 방어
-                        dummy_guide = (
-                            "📋 일반적인 구직 지원 방법 안내\n\n"
-                            "[지원 방식] 워크넷 온라인 입사지원\n\n"
-                            "1단계. 작성된 자기소개서 본문을 길게 눌러 복사해 둡니다.\n"
-                            "2단계. 지원 공고 원문 링크로 이동합니다.\n"
-                            "3단계. 이력서와 복사한 자기소개서를 입력하여 온라인 접수를 완료합니다.\n\n"
-                            "💡 공고의 상세 조회가 어렵거나 마감된 공고일 수 있어 기본 안내를 드렸습니다. 😊"
-                        )
-                        return _build_response(dummy_guide, ["📋 기존 자소서 보기", "✨ 새로 작성하기"])
-                        
-                    guide_text = await get_apply_guide(job)
-                    return _build_response(guide_text, ["📋 기존 자소서 보기", "✨ 새로 작성하기"])
-
-                if stripped == "괜찮아요":
-                    return _build_response("필요하시면 언제든 말씀해 주세요 😊", ["📋 기존 자소서 보기", "✨ 새로 작성하기"])
-
-                # 완료 상태에서 다른 텍스트를 입력했을 때는 수정 모드로 가지 않고 완료 상태용 웰컴 퀵버튼 반환
                 return _build_response(
-                    "자소서가 완성됐어요! 🎉\n이 공고에 어떻게 지원하는지 안내해드릴까요?",
-                    ["네, 알려주세요", "괜찮아요"],
+                    "자소서가 완성됐어요! 🎉\n필요하신 게 있으면 언제든 말씀해 주세요 😊",
+                    ["📋 기존 자소서 보기", "✨ 새로 작성하기"],
                 )
 
         # 신규 사용자: DB에 없으면 생성 후 환영 메시지 + 첫 질문

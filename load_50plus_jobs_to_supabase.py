@@ -54,20 +54,13 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
         "ann_no": to_int(row.get("ann_no")),
         "title": clean_value(row.get("title")),
         "company_or_org": clean_value(row.get("company_or_org")),
-        "business_type_code": clean_value(row.get("business_type_code")),
-        "business_type_name": clean_value(row.get("business_type_name")),
-        "recruit_status_code": clean_value(row.get("recruit_status_code")),
         "recruit_status_name": clean_value(row.get("recruit_status_name")),
-        "recruit_type_code": clean_value(row.get("recruit_type_code")),
-        "recruit_type_name": clean_value(row.get("recruit_type_name")),
         "apply_period": clean_value(row.get("apply_period")),
         "apply_start": clean_value(row.get("apply_start")),
         "apply_end": clean_value(row.get("apply_end")),
         "dday": to_int(row.get("dday")),
         "recruit_count": to_int(row.get("recruit_count")),
-        "occupation_code": clean_value(row.get("occupation_code")),
         "occupation_name": clean_value(row.get("occupation_name")),
-        "work_condition_code": clean_value(row.get("work_condition_code")),
         "work_condition_name": clean_value(row.get("work_condition_name")),
         "career_code": clean_value(row.get("career_code")),
         "career_name": clean_value(row.get("career_name")),
@@ -78,9 +71,7 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
         "event_location": clean_value(row.get("event_location")),
         "pre_edu_yn": clean_value(row.get("pre_edu_yn")),
         "source_url": clean_value(row.get("source_url")),
-        "crawled_at": clean_value(row.get("crawled_at")),
         "raw_data": row.get("raw_data") or {},
-        "synced_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -101,6 +92,25 @@ def get_supabase() -> Client:
 
 
 def upsert_jobs(client: Client, jobs: list[dict[str, Any]], batch_size: int) -> None:
+    # Get current ann_no list from Supabase
+    try:
+        response = client.table(TABLE_NAME).select("ann_no").execute()
+        existing_ann_nos = {row["ann_no"] for row in response.data}
+    except Exception as exc:
+        print(f"Warning: Could not fetch existing ann_no: {exc}")
+        existing_ann_nos = set()
+
+    new_ann_nos = {job["ann_no"] for job in jobs if job.get("ann_no") is not None}
+    to_delete = existing_ann_nos - new_ann_nos
+
+    if to_delete:
+        print(f"Deleting {len(to_delete)} expired jobs...")
+        # Supabase API usually allows deleting by list, but in eq it might need to be done in batches or IN clause
+        to_delete_list = list(to_delete)
+        for i in range(0, len(to_delete_list), batch_size):
+            batch_delete = to_delete_list[i : i + batch_size]
+            client.table(TABLE_NAME).delete().in_("ann_no", batch_delete).execute()
+
     for idx in range(0, len(jobs), batch_size):
         batch = jobs[idx : idx + batch_size]
         try:

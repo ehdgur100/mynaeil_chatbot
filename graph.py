@@ -17,6 +17,7 @@ def route_intent(state: AgentState) -> str:
         "resume_verify",  # 자소서 유튜브 RAG 검증
         "job_search",  # 일자리 검색 및 추천
         "edu_recommend",
+        "apply_guide",
         "edu_guide",
         "basic_chat",  # 일반 인사 및 대화 (기본 대기실)
     ]
@@ -52,6 +53,7 @@ workflow.add_node("resume_verify", nodes.resume_verify)  # 유튜브 팁 기반 
 workflow.add_node("job_search", nodes.job_search)  # 맞춤형 일자리 찾기방
 workflow.add_node("edu_recommend", nodes.edu_recommend)
 workflow.add_node("edu_guide", nodes.edu_guide)
+workflow.add_node("apply_guide", nodes.apply_guide)
 
 workflow.add_node("basic_chat", nodes.basic_chat)  # 일상 대화 및 안내 안내방
 
@@ -67,6 +69,7 @@ workflow.add_conditional_edges("resume_gen", route_resume_gen)
 workflow.add_edge("resume_verify", END)
 workflow.add_edge("job_search", END)
 workflow.add_edge("edu_recommend", END)
+workflow.add_edge("apply_guide", END)
 workflow.add_edge("edu_guide", END)
 workflow.add_edge("basic_chat", END)
 
