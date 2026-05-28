@@ -7,6 +7,7 @@ from langchain_core.messages import HumanMessage
 
 from graph import app_graph
 from nodes.navigation import add_navigation_buttons
+import database.operations as db_ops
 
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -33,22 +34,40 @@ _ERROR_BODY = {
 
 
 def is_slow_request(user_id: str, user_message: str) -> bool:
-    message_clean = user_message.strip().lower()
-    slow_keywords = [
-        "검증",
-        "평가",
-        "첨삭",
-        "피드백",
-        "자소서 수정",
-        "교육 신청 가이드",
-        "신청 준비",
-    ]
-    numbered_edu_guide = re.search(
-        r"\d+\s*번\s*(교육|과정)?\s*(신청|가이드|준비)", message_clean
-    )
-    return any(keyword in message_clean for keyword in slow_keywords) or bool(
-        numbered_edu_guide
-    )
+    input_clean = user_message.strip().lower()
+
+    # 자소서 검증/첨삭/수정/피드백 키워드
+    if any(k in input_clean for k in ["검증", "평가", "첨삭", "피드백", "판별", "수정", "고쳐"]):
+        return True
+
+    # 교육 신청 가이드 키워드
+    if any(
+        k in input_clean
+        for k in ["신청 가이드", "준비 가이드", "신청 준비", "교육 신청", "어떻게 신청"]
+    ) or re.search(r"\d+번\s*(교육|과정)?\s*(신청|가이드|준비)", input_clean):
+        return True
+
+    # DB 기반 상태 체크 (step 5 벡터 검색 / step 8 자소서 생성 / editing·done 수정)
+    try:
+        profile = db_ops.get_user_profile(user_id)
+        if profile:
+            step = profile.get("step", 0)
+            resume_status = profile.get("resume_status")
+            reset_keywords = ["처음부터", "초기화", "다시 시작"]
+
+            if step == 5 and not any(k in input_clean for k in reset_keywords):
+                return True
+
+            if step == 8 and not any(k in input_clean for k in reset_keywords):
+                return True
+
+            if resume_status in ("editing", "done"):
+                if not any(k in input_clean for k in ["완료", "처음부터", "초기화"]):
+                    return True
+    except Exception as e:
+        print(f"[is_slow_request check error] {e}")
+
+    return False
 
 
 async def _run_graph_with_callback(
