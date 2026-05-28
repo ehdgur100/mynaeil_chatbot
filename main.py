@@ -53,12 +53,13 @@ def is_slow_request(user_id: str, user_message: str) -> bool:
         if profile:
             step = profile.get("step", 0)
             resume_status = profile.get("resume_status")
-            reset_keywords = ["처음부터", "초기화", "다시 시작"]
+            # 리셋 키워드와 메뉴 선택 버튼은 빠른 처리 대상
+            skip_keywords = ["처음부터", "초기화", "다시 시작", "이어서 작성하기", "이어서 자소서 작성하기"]
 
-            if step == 5 and not any(k in input_clean for k in reset_keywords):
+            if step == 5 and not any(k in input_clean for k in skip_keywords):
                 return True
 
-            if step == 8 and not any(k in input_clean for k in reset_keywords):
+            if step == 8 and not any(k in input_clean for k in skip_keywords):
                 return True
 
             if resume_status in ("editing", "done"):
