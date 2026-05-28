@@ -1,3 +1,4 @@
+import ssl_patch
 import re
 import sys
 from html import escape
@@ -58,10 +59,12 @@ def is_slow_request(user_id: str, user_message: str) -> bool:
             resume_status = profile.get("resume_status")
             # 리셋 키워드와 메뉴 선택 버튼은 빠른 처리 대상
             skip_keywords = ["처음부터", "초기화", "다시 시작", "이어서 작성하기", "이어서 자소서 작성하기"]
-            if step == 5 and not any(k in input_clean for k in skip_keywords):
+            # 4번 질문(강점) 답변 후 공고 추천 (벡터 검색)
+            if step == 4 and not any(k in input_clean for k in skip_keywords):
                 return True
 
-            if step == 8 and not any(k in input_clean for k in skip_keywords):
+            # 6번 질문(힘든점) 답변 후 자소서 생성 (LLM)
+            if step == 6 and not any(k in input_clean for k in skip_keywords):
                 return True
 
             if resume_status in ("editing", "done"):
@@ -118,7 +121,10 @@ async def chat_endpoint(request: Request, background_tasks: BackgroundTasks):
     except Exception:
         pass
 
-    if callback_url and is_slow_request(user_id, user_message):
+    slow_req = is_slow_request(user_id, user_message)
+    print(f"[DEBUG] callback_url exists: {bool(callback_url)}, is_slow_request: {slow_req}")
+
+    if callback_url and slow_req:
         background_tasks.add_task(
             _run_graph_with_callback, user_id, user_message, callback_url
         )

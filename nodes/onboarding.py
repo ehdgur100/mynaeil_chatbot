@@ -35,26 +35,6 @@ class ResumeReviewTask:
 
 STEPS = [
     {
-        "field": "career",
-        "question": (
-            "그동안 어떤 일을 가장 오래 하셨나요?\n"
-            "구체적으로 말씀해 주실수록 더 좋은 자소서가 완성돼요 😊\n\n"
-            "예) 자동차 부품 공장 생산직 15년, 하루 500개 부품 검수\n"
-            "    식당 운영 10년, 직원 5명 관리 및 월 매출 3000만원\n"
-            "    사무 행정 20년, 문서 관리 및 거래처 응대 담당"
-        ),
-        "quick_replies": [],
-    },
-    {
-        "field": "skills",
-        "question": (
-            "현재 갖고 계신 자격증이나 면허가 있으신가요?\n"
-            "운전면허, 지게차, 요양보호사, 조리사 등 어떤 것이든 좋아요.\n"
-            "없으시면 아래 버튼을 눌러주세요 😊"
-        ),
-        "quick_replies": ["없음"],
-    },
-    {
         "field": "desired_job",
         "question": (
             "앞으로 어떤 종류의 일을 해보고 싶으신가요?\n"
@@ -79,18 +59,24 @@ STEPS = [
         "quick_replies": [],
     },
     {
-        "field": "work_condition",
+        "field": "career",
         "question": (
-            "근무 관련해서 가능하신 조건을 알려주세요.\n"
-            "아래 버튼으로 선택하시거나 직접 입력하셔도 됩니다 😊\n"
-            "(예: 주말 가능, 야간 불가, 하루 6시간 이내)"
+            "그동안 어떤 일을 가장 오래 하셨나요?\n"
+            "구체적으로 말씀해 주실수록 더 좋은 자소서가 완성돼요 😊\n\n"
+            "예) 자동차 부품 공장 생산직 15년, 하루 500개 부품 검수\n"
+            "    식당 운영 10년, 직원 5명 관리 및 월 매출 3000만원\n"
+            "    사무 행정 20년, 문서 관리 및 거래처 응대 담당"
         ),
-        "quick_replies": [
-            "주말 가능, 야간 가능",
-            "주말 가능, 야간 불가",
-            "주말 불가, 야간 불가",
-            "시간 협의 가능",
-        ],
+        "quick_replies": [],
+    },
+    {
+        "field": "skills",
+        "question": (
+            "현재 갖고 계신 자격증이나 면허가 있으신가요?\n"
+            "운전면허, 지게차, 요양보호사, 조리사 등 어떤 것이든 좋아요.\n"
+            "없으시면 아래 버튼을 눌러주세요 😊"
+        ),
+        "quick_replies": ["없음"],
     },
     {
         "field": "strengths",
@@ -101,17 +87,6 @@ STEPS = [
             "    사람을 잘 챙긴다, 한번 맡은 일은 끝까지 한다"
         ),
         "quick_replies": [],
-    },
-    {
-        "field": "goal",
-        "question": (
-            "지금 가장 중요한 것이 무엇인지 알려주세요.\n" "거의 다 왔어요 😊"
-        ),
-        "quick_replies": [
-            "빠르게 취업해서 소득이 필요해요",
-            "천천히 맞는 일을 찾고 싶어요",
-            "일단 뭐든 해보고 싶어요",
-        ],
     },
     {
         "field": "proud_experience",
@@ -138,7 +113,7 @@ STEPS = [
     },
 ]
 
-_TEXT_STEPS = {0, 3, 5, 7, 8}  # 퀵리플라이 없이 텍스트로 입력받는 step
+_TEXT_STEPS = {1, 2, 4, 5, 6}  # 퀵리플라이 없이 텍스트로 입력받는 step
 _retry_counts: dict[str, int] = {}  # key: f"{user_id}_{step}"
 
 _DB_ERROR = {
@@ -264,11 +239,11 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
             if resume_status == "jobs_recommended":
                 if supabase is not None:
                     supabase.table("users").update(
-                        {"step": 5, "resume_status": "none"}
+                        {"step": 4, "resume_status": "none"}
                     ).eq("user_id", user_id).execute()
                 return _build_response(
-                    "이전 단계로 돌아갈게요.\n\n" + STEPS[5]["question"],
-                    STEPS[5]["quick_replies"],
+                    "이전 단계로 돌아갈게요.\n\n" + STEPS[4]["question"],
+                    STEPS[4]["quick_replies"],
                 )
 
             step = user.get("step", 0) or 0
@@ -327,7 +302,7 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 return _build_response(msg, ["📋 기존 자소서 보기", "✍️ 기존 자소서 첨삭/수정", "✨ 새로 작성하기"])
 
             # 2. 저장된 자소서는 없으나 온보딩 중간 단계인 경우
-            if user is not None and 0 < user.get("step", 0) < 9:
+            if user is not None and 0 < user.get("step", 0) < len(STEPS):
                 msg = "이전에 작성하시던 정보가 있습니다. 이어서 작성하시겠어요? 😊"
                 return _build_response(msg, ["이어서 작성하기", "처음부터"])
 
@@ -363,20 +338,33 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
             msg = "새롭게 자기소개서 작성을 시작합니다! 😊\n\n" + STEPS[0]["question"]
             return _build_response(msg, STEPS[0]["quick_replies"])
 
-        if stripped == "이어서 작성하기" and user is not None and 0 < user.get("step", 0) < 9:
+        if stripped.lower().startswith("[cmd]start_job_search") or stripped == "일자리 검색":
+            _reset_user(user_id)
+            try:
+                if supabase is not None:
+                    supabase.table("resumes").delete().eq("user_id", user_id).execute()
+            except Exception as e:
+                print(f"[Onboarding Reset Warning] resumes 삭제 실패: {e}")
+            msg = "딱 맞는 일자리를 찾기 위해 몇 가지 질문을 드릴게요! 😊\n\n" + STEPS[0]["question"]
+            return _build_response(msg, STEPS[0]["quick_replies"])
+
+        if stripped == "이어서 작성하기" and user is not None and 0 < user.get("step", 0) < len(STEPS):
             step = user.get("step", 0)
             return _build_response(STEPS[step]["question"], STEPS[step]["quick_replies"])
 
-        # 추천 공고 직후의 입력 이벤트 분기 처리 (step 6 진입 유도)
-        if user is not None and user.get("resume_status") == "jobs_recommended":
-            if stripped.startswith("공고선택:"):
-                job_id = stripped.split(":", 1)[1]
-                try:
-                    db_ops.save_selected_job_id(user_id, job_id)
-                except Exception as e:
-                    print(f"[selected_job_id 저장 실패] {e}")
-            _update_resume_status(user_id, "none")
-            return _build_response(STEPS[6]["question"], STEPS[6]["quick_replies"])
+        # 사용자가 공고를 선택하고 지원(자소서 작성)을 시작한 경우
+        import re
+        job_match = re.search(r"공고번호:\s*(\d+)", stripped)
+        if job_match:
+            job_id = job_match.group(1)
+            try:
+                db_ops.save_selected_job_id(user_id, job_id)
+            except Exception as e:
+                print(f"[selected_job_id 저장 실패] {e}")
+            
+            _update_resume_status(user_id, "editing") 
+            msg = "선택하신 공고에 지원할 자소서를 작성해 드릴게요! 😊\n\n" + STEPS[5]["question"]
+            return _build_response(msg, STEPS[5]["quick_replies"])
 
         # resume_status 기반 상태 처리
         if user is not None and user.get("resume_status", "none") != "none":
@@ -404,14 +392,14 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
             _create_user(user_id)
             welcome = (
                 "안녕하세요! 자기소개서 작성을 도와드릴게요 😊\n"
-                "질문이 총 9개예요. 편하게 답변해 주세요!\n\n" + STEPS[0]["question"]
+                f"질문이 총 {len(STEPS)}개예요. 편하게 답변해 주세요!\n\n" + STEPS[0]["question"]
             )
             return _build_response(welcome, STEPS[0]["quick_replies"])
 
         step = user.get("step", 0)
 
-        # 온보딩 완료 (step >= 9)
-        if step >= 9:
+        # 온보딩 완료 (step >= len(STEPS))
+        if step >= len(STEPS):
             if stripped == "새로 작성하기":
                 _reset_user(user_id)
                 msg = "새로 시작할게요! 😊\n\n" + STEPS[0]["question"]
@@ -442,16 +430,13 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 )
             _retry_counts.pop(retry_key, None)
 
-        # 6번째 질문(strengths, index 5) 답변이 완료되었을 때 공고 추천 분기
-        if step == 5:
-            _save_answer(user_id, field, stripped, 6)
+        # 4번째 질문(strengths) 답변이 완료되었을 때 공고 추천 분기
+        if step == 4:
+            _save_answer(user_id, field, stripped, 5)
             _update_resume_status(user_id, "jobs_recommended")
             
-            # 단일 추천 엔진(recommend.py)을 동일하게 사용하도록 통합
             from data_pipeline import recommend
-            
             try:
-                # 사용자의 프로필 벡터와 3개 테이블 전체 공고 간 하이브리드 매칭 (Top 3개)
                 recommended = await recommend.recommend_jobs_for_user(user_id, limit=3)
             except Exception as e:
                 print(f"[Onboarding Job Recommendation Error] {e}")
@@ -482,8 +467,8 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                     f"지원하고 싶은 공고를 선택하시면 맞춤 자기소개서를 완성해 드려요! 😊"
                 )
                 job_buttons = [
-                    {"action": "message", "label": f"📌 {i+1}번 공고 선택", "messageText": f"공고선택:{job.get('id')}"}
-                    for i, job in enumerate(recommended) if job.get("id")
+                    {"action": "message", "label": f"{i+1}번 공고로 지원", "messageText": f"{i+1}번 공고로 지원할게요 (공고번호: {job.get('id', job.get('job_id', i+1))})"}
+                    for i, job in enumerate(recommended)
                 ]
                 job_buttons.append({"action": "message", "label": "처음부터", "messageText": "처음부터"})
                 return _build_response(msg, job_buttons)
@@ -496,7 +481,7 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
 
         _save_answer(user_id, field, stripped, step + 1)
 
-        if step + 1 >= 9:
+        if step + 1 >= len(STEPS):
             return ResumeTask(
                 user_id=user_id,
                 immediate_message="자소서를 작성 중이에요. 잠시만 기다려주세요 ✍️",
@@ -515,8 +500,49 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
 async def resume_gen(state: dict) -> dict:
     user_id = state["user_id"]
     user_message = state["messages"][-1].content
+    selected_job = state.get("selected_job")
 
-    result = await handle_onboarding(user_id, user_message)
+    if selected_job:
+        user = _get_user(user_id)
+        if user is None:
+            _create_user(user_id)
+            user = _get_user(user_id)
+            
+        title = selected_job.get("title", "")
+        company = selected_job.get("company", "")
+        desired_job_str = f"{title} ({company})" if company else title
+
+        _save_answer(user_id, "desired_job", desired_job_str, user.get("step", 0))
+        
+        job_id = selected_job.get("id") or selected_job.get("job_id")
+        if job_id:
+            try:
+                db_ops.save_selected_job_id(user_id, str(job_id))
+            except Exception as e:
+                print(f"[Save Job ID Error] {e}")
+                
+        # 이미 온보딩이 완료된 경우 즉시 맞춤 자소서 생성
+        if user.get("step", 0) >= len(STEPS):
+            user_data = dict(user)
+            user_data["desired_job"] = desired_job_str
+            result = ResumeTask(
+                user_id=user_id,
+                immediate_message=f"[{company}] {title} 맞춤형 자소서를 새롭게 작성 중이에요. 잠시만 기다려주세요 ✍️",
+                user_data=user_data,
+            )
+        else:
+            # 온보딩 미완료인 경우 이어서(또는 처음부터) 작성 안내
+            step = user.get("step", 0)
+            if step == 0:
+                msg = f"[{company}] {title} 맞춤형 자소서 작성을 시작합니다! 😊\n\n" + STEPS[0]["question"]
+                kakao_response = _build_response(msg, STEPS[0]["quick_replies"])
+            else:
+                msg = f"[{company}] {title} 공고에 지원하시네요! 이전에 작성하시던 정보에 이어서 작성할게요 😊\n\n" + STEPS[step]["question"]
+                kakao_response = _build_response(msg, STEPS[step]["quick_replies"])
+            
+            return {"kakao_response": kakao_response, "selected_job": None}
+    else:
+        result = await handle_onboarding(user_id, user_message)
 
     if isinstance(result, ResumeTask):
         if result.user_data is not None:
@@ -527,9 +553,15 @@ async def resume_gen(state: dict) -> dict:
                 if selected_job_id:
                     job_details = db_ops.get_job_by_id(selected_job_id)
 
+                desired_job = result.user_data.get("desired_job") or ""
+                if not desired_job and job_details:
+                    title = job_details.get('title') or ""
+                    company = job_details.get('company') or ""
+                    desired_job = f"{title} ({company})" if company else title
+
                 # 2. 초안 자소서를 작성해 DB에 임시 저장 (공고 정보 동적 반영)
                 resume_text = await resume.generate_resume_with_tips(result.user_data, job_details)
-                _save_resume(result.user_id, result.user_data.get("desired_job") or "", resume_text)
+                _save_resume(result.user_id, desired_job, resume_text)
                 
                 # 3. 첨삭 노드로 즉각 체이닝하여 최종 첨삭본을 빌드하도록 유도
                 return {

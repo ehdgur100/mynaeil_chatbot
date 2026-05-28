@@ -101,7 +101,7 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
     search_keyword = extracted.get("keyword") or desired_job or "시니어"
     search_location = extracted.get("location") or location or "서울"
 
-    # 3. 데이터 원천 수집 (오직 DB 사전 수집본인 jobs3 테이블만 고속 조회)
+    # 3. 데이터 원천 수집 (DB 사전 수집본인 jobs 및 job_seoul_50 테이블 병합 조회)
     db_jobs = db_ops.get_jobs_from_db(search_keyword, search_location, limit=10)
     
     # 중복 제거 및 포맷팅 처리
@@ -153,20 +153,33 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
         )
 
     # 6. 빠른 답장 버튼(Quick Replies) 생성
-    quick_replies = ["자소서 작성", "일자리 검색", "자소서 검증"]
+    if recommended:
+        quick_replies = [
+            {"action": "message", "label": f"{i+1}번 공고로 지원", "messageText": f"[CMD]job_select:{recommended[i].get('id', i+1)}"}
+            for i in range(len(recommended))
+        ]
+        quick_replies.extend([
+            {"action": "message", "label": "다른 일자리 검색", "messageText": "[CMD]job_search"},
+            {"action": "message", "label": "처음으로", "messageText": "[CMD]basic_chat"}
+        ])
+    else:
+        quick_replies = [
+            {"action": "message", "label": "공고 추천", "messageText": "[CMD]job_search"},
+            {"action": "message", "label": "교육 추천", "messageText": "[CMD]edu_recommend"},
+            {"action": "message", "label": "처음으로", "messageText": "[CMD]basic_chat"}
+        ]
+
     kakao_resp = {
         "version": "2.0",
         "template": {
             "outputs": [{"simpleText": {"text": ai_response}}],
-            "quickReplies": [
-                {"action": "message", "label": label, "messageText": label}
-                for label in quick_replies
-            ]
+            "quickReplies": quick_replies
         }
     }
 
     return {
         "messages": [AIMessage(content=ai_response)],
         "kakao_response": kakao_resp,
-        "intent": "job_search"
+        "intent": "job_search",
+        "last_recommended_jobs": recommended
     }

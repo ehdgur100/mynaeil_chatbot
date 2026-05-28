@@ -23,3 +23,7 @@ class AgentState(TypedDict):
 
     # 카카오톡 비동기 콜백용 URL
     callback_url: Optional[str]
+
+    # 공고 추천 시 저장되는 최근 추천 목록과 선택한 공고
+    last_recommended_jobs: Optional[list[dict]]
+    selected_job: Optional[dict]
