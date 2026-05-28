@@ -151,16 +151,33 @@ async def edu_guide(state: AgentState) -> Dict[str, Any]:
     }
 
 
+from nodes.guide import get_apply_guide
+
 async def apply_guide(state: AgentState) -> Dict[str, Any]:
-    text = (
-        "지원 가이드는 선택한 공고나 교육에 맞춰 안내할 수 있어요.\n"
-        "교육은 먼저 추천을 받은 뒤 '1번 교육 신청 가이드'처럼 눌러주세요."
-    )
+    print("[Node] apply_guide 실행 (동적 채용 가이드 생성)")
+    user_id = state.get("user_id", "unknown")
+    
+    profile = db_ops.get_user_profile(user_id) or {}
+    selected_job_id = profile.get("selected_job_id")
+    
+    if selected_job_id:
+        job = db_ops.get_job_by_id(selected_job_id)
+        if job:
+            ai_response = await get_apply_guide(job)
+        else:
+            ai_response = "선택하신 공고 정보를 불러올 수 없습니다. 😥 다시 공고를 선택해 주세요."
+    else:
+        ai_response = (
+            "아직 선택하신 구직 공고가 없습니다. 💼\n\n"
+            "먼저 '일자리 검색'이나 '자기소개서 작성' 온보딩 메뉴를 통해 "
+            "원하시는 공고를 선택해 주시면 자세한 지원 가이드를 만들어 드릴게요!"
+        )
+        
     return {
-        "messages": [AIMessage(content=text)],
+        "messages": [AIMessage(content=ai_response)],
         "kakao_response": {
             "version": "2.0",
-            "template": {"outputs": [{"simpleText": {"text": text}}]},
+            "template": {"outputs": [{"simpleText": {"text": ai_response}}]},
         },
         "intent": "apply_guide",
     }

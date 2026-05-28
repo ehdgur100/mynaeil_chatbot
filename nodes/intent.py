@@ -35,6 +35,18 @@ def _is_job_search(text: str) -> bool:
     return _contains_any(text, JOB_WORDS)
 
 
+def is_explicit_menu_command(text: str) -> bool:
+    clean = re.sub(r"[^\w\s]", "", text).strip()
+    normalized = " ".join(clean.split())
+    menu_commands = {
+        "일자리 검색", "일자리검색",
+        "교육 추천", "교육추천",
+        "자기소개서 작성", "자기소개서작성", "자소서 작성", "자소서작성",
+        "처음으로", "처음", "메인", "홈", "초기화", "처음부터", "다시 시작"
+    }
+    return normalized in menu_commands
+
+
 async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     print("[Node] analyze_intent 실행")
 
@@ -102,7 +114,8 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
 
         # 온보딩 진행 중(step 1~8) 또는 공고 추천 직후 상태에서는 키워드 체크보다
         # 먼저 resume_gen으로 라우팅 — 답변 텍스트에 "취업" 등 키워드가 섞여도 오분류 방지
-        if 0 < step < 9 or resume_status == "jobs_recommended":
+        # 단, "일자리 검색" 등 명시적인 메뉴 커맨드가 유입된 경우는 제외
+        if (0 < step < 9 or resume_status == "jobs_recommended") and not is_explicit_menu_command(text):
             return {"intent": "resume_gen"}
 
     # 키워드 기반 라우팅 (활성 온보딩 상태가 아닐 때만 도달)

@@ -59,27 +59,52 @@ def save_selected_job_id(user_id: str, job_id: str) -> None:
         raise RuntimeError("Supabase가 연결되지 않았습니다.")
     supabase.table("users").update({"selected_job_id": job_id}).eq("user_id", user_id).execute()
 
+def _normalize_job_row(row: dict, table: str) -> dict:
+    return {
+        "job_id": row.get("id"),
+        "table": table,
+        "company": row.get("company") or row.get("company_name") or row.get("company_or_org") or "",
+        "title": row.get("title") or row.get("job_category") or "",
+        "description": row.get("content") or row.get("description") or row.get("occupation_name") or "",
+        "location": row.get("location") or row.get("event_location") or "",
+        "deadline": row.get("deadline") or row.get("end_date") or row.get("apply_end") or "",
+        "source_url": row.get("source_url") or row.get("url") or row.get("application_url") or "",
+    }
 def get_job_by_id(job_id: str) -> Optional[dict]:
-    """jobs3 → jobs → job_seoul_50 순서로 ID로 공고를 조회하고 정규화된 dict를 반환합니다."""
-    if supabase is None:
+    """접두사(jobs3_, jobs_, seoul_)가 포함된 ID로 특정 테이블에서 공고를 조회합니다."""
+    if supabase is None or not job_id:
         return None
-    for table in ("jobs3", "jobs", "job_seoul_50"):
-        try:
-            result = supabase.table(table).select("*").eq("id", job_id).limit(1).execute()
-            if result.data:
-                row = result.data[0]
-                return {
-                    "job_id": row.get("id"),
-                    "table": table,
-                    "company": row.get("company") or row.get("company_name") or "",
-                    "title": row.get("title") or row.get("job_category") or "",
-                    "description": row.get("content") or row.get("description") or "",
-                    "location": row.get("location") or "",
-                    "deadline": row.get("deadline") or row.get("end_date") or "",
-                    "source_url": row.get("source_url") or row.get("url") or "",
-                }
-        except Exception as e:
-            print(f"[get_job_by_id] {table} 조회 실패: {e}")
+        
+    table = None
+    raw_id = None
+    
+    # 접두사 분리 판단
+    if job_id.startswith("jobs3_"):
+        table = "jobs3"
+        raw_id = job_id.split("_", 1)[1]
+    elif job_id.startswith("jobs_"):
+        table = "jobs"
+        raw_id = job_id.split("_", 1)[1]
+    elif job_id.startswith("seoul_"):
+        table = "job_seoul_50"
+        raw_id = job_id.split("_", 1)[1]
+    else:
+        # 접두사가 없는 기존 ID 폴백 (순차 조회)
+        for t in ("jobs3", "jobs", "job_seoul_50"):
+            try:
+                result = supabase.table(t).select("*").eq("id", job_id).limit(1).execute()
+                if result.data:
+                    return _normalize_job_row(result.data[0], t)
+            except Exception as e:
+                print(f"[get_job_by_id] {t} 폴백 조회 실패: {e}")
+        return None
+
+    try:
+        result = supabase.table(table).select("*").eq("id", raw_id).limit(1).execute()
+        if result.data:
+            return _normalize_job_row(result.data[0], table)
+    except Exception as e:
+        print(f"[get_job_by_id] {table} (ID: {raw_id}) 조회 실패: {e}")
     return None
 
 def get_jobs_from_db(keyword: str, location: str, limit: int = 10) -> list[dict]:

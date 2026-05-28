@@ -125,7 +125,8 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
     if recommended:
         job_list_str = ""
         for i, job in enumerate(recommended):
-            raw_url = job.get('url') or ""
+            import config
+            raw_url = config.normalize_job_url(job.get('url')) or ""
             # 카카오톡 링크 끊김 방지를 위해 URL의 한글 및 공백 인코딩 적용
             encoded_url = urllib.parse.quote(raw_url, safe=":/?=&") if raw_url else "https://www.work.go.kr"
             

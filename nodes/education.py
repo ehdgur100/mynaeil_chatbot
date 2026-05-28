@@ -66,6 +66,104 @@ CATEGORY_HINTS = {
     "50플러스센터교육": ("센터교육", "50플러스센터", "센터 강의", "센터 과정"),
 }
 
+CLEANING_TERMS = (
+    "청소",
+    "미화",
+    "환경미화",
+    "홈클리닝",
+    "클리닝",
+    "청소매니저",
+    "홈매니저",
+    "청연",
+    "위생",
+    "정리",
+    "정리수납",
+    "수납",
+    "가사",
+    "방역",
+    "세척",
+)
+
+JOB_FIELD_TERMS = {
+    "생산·제조": (
+        "생산",
+        "제조",
+        "공장",
+        "품질",
+        "검사",
+        "조립",
+        "포장",
+        "물류",
+        "기계",
+        "전기",
+        "설비",
+        "산업",
+    ),
+    "돌봄·요양": (
+        "돌봄",
+        "요양",
+        "요양보호",
+        "간병",
+        "산후",
+        "신생아",
+        "아이돌봄",
+        "보육",
+        "복지",
+        "생활지원",
+        "펫시터",
+        "치매",
+    ),
+    "청소·환경미화": CLEANING_TERMS,
+    "경비·시설관리": (
+        "경비",
+        "보안",
+        "시설관리",
+        "관리원",
+        "건물관리",
+        "안전관리",
+        "소방",
+        "전기",
+        "설비",
+        "주택관리",
+        "아파트",
+        "기계설비",
+        "방재",
+    ),
+    "배달·운전": (
+        "배달",
+        "배송",
+        "운전",
+        "운송",
+        "택배",
+        "화물",
+        "택시",
+        "지게차",
+        "물류",
+        "퀵",
+        "드라이버",
+    ),
+    "사무·행정": (
+        "사무",
+        "행정",
+        "회계",
+        "경리",
+        "문서",
+        "엑셀",
+        "한글",
+        "컴퓨터",
+        "오피스",
+        "총무",
+        "데이터",
+        "OA",
+        "마케팅",
+    ),
+}
+
+EDU_RESULT_COMMANDS = (
+    "모집중 교육 더 보기",
+    "모집예정 교육 보기",
+)
+
 
 def _clean(value: Any) -> str:
     return str(value or "").strip()
@@ -147,6 +245,15 @@ def _row_text(row: dict[str, Any]) -> str:
     return " ".join(_clean(row.get(field)) for field in fields).lower()
 
 
+def _field_match_text(row: dict[str, Any]) -> str:
+    fields = (
+        "title",
+        "business_type_name",
+        "occupation_name",
+    )
+    return " ".join(_clean(row.get(field)) for field in fields).lower()
+
+
 def _requested_status(user_input: str) -> str | None:
     compact = _compact(user_input)
     if "모집예정" in compact or "모집예고" in compact or "예정" in compact:
@@ -165,6 +272,29 @@ def _requested_categories(user_input: str) -> list[str]:
     return categories
 
 
+def _is_education_result_command(user_input: str) -> bool:
+    compact = _compact(user_input)
+    return any(_compact(command) in compact for command in EDU_RESULT_COMMANDS)
+
+
+def _cleaning_requested(*values: Any) -> bool:
+    compact = _compact(" ".join(_clean(value) for value in values if value))
+    return any(term in compact for term in CLEANING_TERMS)
+
+
+def _requested_job_field(*values: Any) -> str | None:
+    compact = _compact(" ".join(_clean(value) for value in values if value))
+    if not compact or "상관없음" in compact:
+        return None
+    for field, terms in JOB_FIELD_TERMS.items():
+        field_compact = _compact(field)
+        if field_compact in compact:
+            return field
+        if any(_compact(term) in compact for term in terms):
+            return field
+    return None
+
+
 def _query_terms(desired_job: str, user_input: str) -> list[str]:
     terms = _split_terms(desired_job, user_input)
     location_like = set(_location_terms(user_input))
@@ -177,11 +307,17 @@ def _query_terms(desired_job: str, user_input: str) -> list[str]:
         "모집",
         "예정",
     }
-    return [
+    filtered_terms = [
         term
         for term in terms
         if term not in location_like and term not in category_words
     ]
+    if _cleaning_requested(desired_job, user_input):
+        filtered_terms.extend(CLEANING_TERMS)
+    requested_field = _requested_job_field(desired_job, user_input)
+    if requested_field:
+        filtered_terms.extend(JOB_FIELD_TERMS[requested_field])
+    return list(dict.fromkeys(filtered_terms))
 
 
 def _has_specific_request(
@@ -212,6 +348,7 @@ def _score_row(
     compact_query = _compact(" ".join([desired_job, digital_level, location, user_input]))
     reasons: list[str] = []
     score = 0
+    requested_field = _requested_job_field(desired_job, user_input)
 
     requested_categories = _requested_categories(user_input)
     if requested_categories:
@@ -220,6 +357,16 @@ def _score_row(
             reasons.append(f"요청하신 {category} 유형의 교육입니다")
         else:
             return 0, []
+
+    if requested_field:
+        field_text = _compact(_field_match_text(row))
+        field_matches = [
+            term for term in JOB_FIELD_TERMS[requested_field] if _compact(term) in field_text
+        ]
+        if not field_matches:
+            return 0, []
+        score += 12
+        reasons.append(f"{requested_field} 분야와 직접 연결되는 교육입니다")
 
     terms = _query_terms(desired_job, user_input)
     title_matches = [term for term in terms if term in title or term in _compact(title)]
@@ -234,6 +381,12 @@ def _score_row(
     if content_matches:
         score += min(len(content_matches), 3) * 3
         reasons.append(f"관련 키워드({', '.join(content_matches[:3])})가 교육 내용과 연결됩니다")
+
+    if _cleaning_requested(desired_job, user_input):
+        cleaning_matches = [term for term in CLEANING_TERMS if term in compact_text]
+        if cleaning_matches:
+            score += 10
+            reasons.append("청소·미화 분야와 연결되는 교육입니다")
 
     digital_requested = any(keyword in compact_query for keyword in DIGITAL_KEYWORDS)
     if digital_requested:
@@ -325,6 +478,21 @@ def _recommend_educations(
         )
         if score > 0:
             scored.append({**row, "_score": score, "_reasons": reasons})
+
+    if not scored and requested_status and not _requested_job_field(desired_job, user_input):
+        date_reason = (
+            "요청하신 모집예정 교육 중 모집시작일이 빠른 순서로 추천했습니다"
+            if requested_status == "모집예정"
+            else "요청하신 모집중 교육 중 신청마감일이 가까운 순서로 추천했습니다"
+        )
+        scored = [
+            {
+                **row,
+                "_score": 0,
+                "_reasons": [date_reason],
+            }
+            for row in rows
+        ]
 
     if not scored and not _has_specific_request(
         desired_job, digital_level, location, user_input
@@ -514,6 +682,54 @@ async def edu_recommend(state: AgentState) -> Dict[str, Any]:
                 "아래 메뉴 중 필요한 기능을 선택해주세요."
             ),
             "intent": "basic_chat",
+        }
+
+    if _is_education_result_command(user_input):
+        desired_job = _clean(profile.get("desired_job"))
+        digital_level = _clean(profile.get("skills"))
+        location = _clean(profile.get("location"))
+
+        try:
+            rows = _fetch_active_educations()
+            recommendations = _recommend_educations(
+                rows=rows,
+                desired_job=desired_job,
+                digital_level=digital_level,
+                location=location,
+                user_input=user_input,
+                limit=3,
+            )
+            ai_response = _build_response_text(
+                recommendations, desired_job, digital_level, location
+            )
+        except Exception as exc:
+            print(f"[Education Result Command Error] {exc}")
+            ai_response = "교육 추천 정보를 다시 불러오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+
+        quick_replies = []
+        shown_count = 0
+        for i in range(1, 4):
+            if f"\n{i}. " in ai_response or f"{i}. " in ai_response:
+                shown_count = i
+
+        for i in range(1, shown_count + 1):
+            quick_replies.append(f"📋 {i}번 교육 신청 가이드")
+
+        quick_replies.extend(["🔎 모집중 교육 더 보기", "🗓️ 모집예정 교육 보기", "🎓 다른 교육 찾기"])
+
+        return {
+            "messages": [AIMessage(content=ai_response)],
+            "kakao_response": {
+                "version": "2.0",
+                "template": {
+                    "outputs": [{"simpleText": {"text": ai_response}}],
+                    "quickReplies": [
+                        {"action": "message", "label": label, "messageText": label}
+                        for label in quick_replies
+                    ],
+                },
+            },
+            "intent": "edu_recommend",
         }
 
     # 만약 사용자가 교육 추천 메뉴 자체를 처음 클릭하거나, 상태가 비어있다면 온보딩 1단계 시작
