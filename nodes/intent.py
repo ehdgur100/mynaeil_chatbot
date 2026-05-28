@@ -41,7 +41,6 @@ def is_explicit_menu_command(text: str) -> bool:
     menu_commands = {
         "일자리 검색", "일자리검색",
         "교육 추천", "교육추천",
-        "자기소개서 작성", "자기소개서작성", "자소서 작성", "자소서작성",
         "처음으로", "처음", "메인", "홈", "초기화", "처음부터", "다시 시작"
     }
     return normalized in menu_commands
@@ -61,6 +60,9 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
 
     if is_home_request(user_input):
         return {"intent": "basic_chat"}
+
+    if text.startswith("[cmd]start_job_search") or "공고로 지원" in text or text == "일자리 검색":
+        return {"intent": "resume_gen"}
 
     if _contains_any(text, GREETING_WORDS):
         return {"intent": "basic_chat"}

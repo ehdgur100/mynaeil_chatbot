@@ -119,7 +119,8 @@ async def revise_resume(
             HumanMessage(content=user_prompt),
         ]
     )
-    return response.content
+    from nodes.base import get_content
+    return get_content(response)
 
 
 async def generate_resume(user_data: dict) -> str:
@@ -140,7 +141,8 @@ async def generate_resume(user_data: dict) -> str:
             HumanMessage(content=user_prompt),
         ]
     )
-    return response.content
+    from nodes.base import get_content
+    return get_content(response)
 
 
 def truncate_section(text: str, max_len: int = 500) -> str:
@@ -285,4 +287,5 @@ async def generate_resume_with_tips(
         SystemMessage(content=system_prompt),
         HumanMessage(content=user_prompt),
     ])
-    return response.content
+    from nodes.base import get_content
+    return get_content(response)

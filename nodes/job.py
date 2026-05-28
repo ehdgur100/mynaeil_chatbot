@@ -101,7 +101,7 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
     search_keyword = extracted.get("keyword") or desired_job or "시니어"
     search_location = extracted.get("location") or location or "서울"
 
-    # 3. 데이터 원천 수집 (오직 DB 사전 수집본인 jobs3 테이블만 고속 조회)
+    # 3. 데이터 원천 수집 (DB 사전 수집본인 jobs 및 job_seoul_50 테이블 병합 조회)
     db_jobs = db_ops.get_jobs_from_db(search_keyword, search_location, limit=10)
     
     # 중복 제거 및 포맷팅 처리
@@ -155,7 +155,7 @@ async def job_search(state: AgentState) -> Dict[str, Any]:
     # 6. 빠른 답장 버튼(Quick Replies) 생성
     if recommended:
         quick_replies = [
-            {"action": "message", "label": f"{i+1}번 공고 자소서 작성", "messageText": f"[CMD]job_select:{i+1}"}
+            {"action": "message", "label": f"{i+1}번 공고로 지원", "messageText": f"[CMD]job_select:{recommended[i].get('id', i+1)}"}
             for i in range(len(recommended))
         ]
         quick_replies.extend([

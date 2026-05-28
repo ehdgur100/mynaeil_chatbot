@@ -9,7 +9,6 @@ from database.connection import supabase
 
 
 MAIN_QUICK_REPLIES = [
-    ("📝 자기소개서 작성", "자기소개서 작성"),
     ("💼 일자리 검색", "일자리 검색"),
     ("🎓 교육 추천", "교육 추천"),
 ]
@@ -42,7 +41,6 @@ async def basic_chat(state: AgentState) -> Dict[str, Any]:
         text = (
             "처음 화면으로 돌아왔어요. 😊\n\n"
             "아래 메뉴 중 필요한 기능을 선택해주세요.\n\n"
-            "📝 자기소개서 작성\n"
             "💼 일자리 검색\n"
             "🎓 교육 추천"
         )
@@ -57,7 +55,6 @@ async def basic_chat(state: AgentState) -> Dict[str, Any]:
             "안녕하세요. 5060 중장년의 구직과 교육 준비를 돕는 "
             "나의내일 챗봇입니다. 😊\n\n"
             "아래 메뉴 중 필요한 기능을 선택해주세요.\n\n"
-            "📝 자기소개서 작성\n"
             "💼 일자리 검색\n"
             "🎓 교육 추천"
         )
@@ -69,7 +66,7 @@ async def basic_chat(state: AgentState) -> Dict[str, Any]:
 
     system_prompt = (
         "당신은 5060 중장년 구직자를 돕는 친절한 상담자입니다. "
-        "사용자의 질문에 2~3문장 이내로 답하고, 필요하면 자기소개서 작성, "
+        "사용자의 질문에 2~3문장 이내로 답하고, 필요하면 "
         "일자리 검색, 교육 추천 기능을 안내하세요."
     )
 
@@ -83,7 +80,7 @@ async def basic_chat(state: AgentState) -> Dict[str, Any]:
         text = get_content(response)
     except Exception as exc:
         print(f"[Basic Chat Error] {exc}")
-        text = "무엇을 도와드릴까요? 📝 자기소개서 작성, 💼 일자리 검색, 🎓 교육 추천 중에서 선택해주세요."
+        text = "무엇을 도와드릴까요? 💼 일자리 검색, 🎓 교육 추천 중에서 선택해주세요."
 
     return {
         "messages": [AIMessage(content=text)],
