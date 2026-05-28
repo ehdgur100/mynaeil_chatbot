@@ -164,6 +164,7 @@ mynaeil_chatbot/
 ├─ graph.py                        # LangGraph 노드 연결
 ├─ state.py                        # LangGraph 상태 정의
 ├─ config.py                       # .env 로드와 API 설정
+├─ ssl_patch.py                    # 외부 API 호출 시 SSL 인증서 오류(CERTIFICATE_VERIFY_FAILED) 해결 패치
 ├─ requirements.txt                # Python 의존성
 ├─ README.md                       # 프로젝트 설명 문서
 ├─ sync_jobs_daily.py              # 일자리 일일 동기화 실행 스크립트
@@ -197,6 +198,7 @@ mynaeil_chatbot/
 - `graph.py`: 사용자 의도에 따라 자기소개서, 일자리, 교육, 가이드 노드를 연결합니다.
 - `state.py`: LangGraph에서 공유하는 상태 구조를 정의합니다.
 - `config.py`: `.env`를 루트 기준으로 불러오고 Supabase, OpenAI, Gemini, Work24, 서울시 API 설정을 관리합니다.
+- `ssl_patch.py`: Gemini API 등 외부 LLM 호출 시 발생하는 SSL 인증서 관련 오류를 certifi 기반으로 해결하는 패치 모듈입니다.
 
 ### 챗봇 노드
 
