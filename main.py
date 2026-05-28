@@ -125,6 +125,8 @@ async def chat_endpoint(request: Request, background_tasks: BackgroundTasks):
             "data": {"text": "처리 중이에요. 잠시만 기다려 주세요."},
         }
 
+    import time
+    start_time = time.time()
     try:
         initial_state = {
             "messages": [HumanMessage(content=user_message)],
@@ -137,9 +139,12 @@ async def chat_endpoint(request: Request, background_tasks: BackgroundTasks):
             initial_state,
             config={"configurable": {"thread_id": user_id}},
         )
+        elapsed = time.time() - start_time
+        print(f"[chat_endpoint] 완료 - 소요 시간: {elapsed:.2f}초")
         return add_navigation_buttons(final_state.get("kakao_response") or _ERROR_BODY)
     except Exception as exc:
-        print(f"[chat_endpoint] error: {exc}")
+        elapsed = time.time() - start_time
+        print(f"[chat_endpoint] 에러 - 소요 시간: {elapsed:.2f}초 | error: {exc}")
         return _ERROR_BODY
 
 
