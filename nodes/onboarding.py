@@ -462,7 +462,9 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
                 job_list_str = ""
                 for i, job in enumerate(recommended):
                     raw_url = job.get('url') or job.get('source_url') or ""
-                    encoded_url = urllib.parse.quote(raw_url, safe=":/?=&") if raw_url else "https://www.work.go.kr"
+                    import config
+                    normalized_url = config.normalize_job_url(raw_url)
+                    encoded_url = urllib.parse.quote(normalized_url, safe=":/?=&") if normalized_url else "https://www.work.go.kr"
                     title = job.get("title") or job.get("job_title") or "제목 없음"
                     company = job.get("company") or job.get("company_name") or job.get("company_or_org") or "기업명 비공개"
                     location = job.get("location") or job.get("event_location") or "지역 미상"

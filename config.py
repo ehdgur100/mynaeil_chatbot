@@ -22,6 +22,32 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 WORK24_API_URL = os.environ.get("WORK24_API_URL", "")
 WORK24_AUTH_KEY = os.environ.get("WORK24_AUTH_KEY", "")
 SEOUL_JOB_API_KEY = os.environ.get("SEOUL_JOB_API_KEY", "")
-PUBLIC_BASE_URL = os.environ.get(
-    "PUBLIC_BASE_URL", "https://aviation-scroll-jovial.ngrok-free.dev"
-).rstrip("/")
+PUBLIC_BASE_URL_ENV = os.environ.get("PUBLIC_BASE_URL", "")
+
+def get_ngrok_url() -> str:
+    import httpx
+    try:
+        resp = httpx.get("http://localhost:4040/api/tunnels", timeout=1.0)
+        if resp.status_code == 200:
+            tunnels = resp.json().get("tunnels", [])
+            for t in tunnels:
+                public_url = t.get("public_url", "")
+                if public_url.startswith("http"):
+                    return public_url
+    except Exception:
+        pass
+    return "https://aviation-scroll-jovial.ngrok-free.dev"
+
+if PUBLIC_BASE_URL_ENV:
+    PUBLIC_BASE_URL = PUBLIC_BASE_URL_ENV.rstrip("/")
+else:
+    PUBLIC_BASE_URL = get_ngrok_url().rstrip("/")
+
+def normalize_job_url(url: str) -> str:
+    import re
+    if not url:
+        return ""
+    if ".ngrok-free.dev" in url or ".ngrok.io" in url:
+        url = re.sub(r"https?://[a-zA-Z0-9.-]+\.ngrok-free\.dev", PUBLIC_BASE_URL, url)
+        url = re.sub(r"https?://[a-zA-Z0-9.-]+\.ngrok\.io", PUBLIC_BASE_URL, url)
+    return url

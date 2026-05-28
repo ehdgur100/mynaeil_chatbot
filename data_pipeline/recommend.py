@@ -142,7 +142,8 @@ def build_kakao_carousel_response(jobs: list) -> dict:
         company = job.get("company") or "기업명 비공개"
         location = job.get("location") or "지역 미상"
         similarity = job.get("similarity", 0.0)
-        url = job.get("url") or "https://www.work.go.kr/"
+        import config
+        url = config.normalize_job_url(job.get("url")) or "https://www.work.go.kr/"
 
         item = {
             "title": f"[{company}] {title}",
