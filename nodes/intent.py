@@ -84,6 +84,28 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
             print(f"[Intent Previous Warning] profile check failed: {exc}")
         return {"intent": "basic_chat"}
 
+    # 프로필을 한 번 조회해 조기 우회와 후기 Smart Bypass 양쪽에서 재사용
+    profile = None
+    step = 0
+    resume_status = "none"
+    try:
+        profile = get_user_profile(user_id)
+        if profile is not None:
+            step = profile.get("step", 0) or 0
+            resume_status = profile.get("resume_status", "none") or "none"
+    except Exception as exc:
+        print(f"[Intent Warning] profile check failed: {exc}")
+
+    if profile is not None:
+        if resume_status.startswith("edu_") and not _contains_any(text, RESET_KEYWORDS):
+            return {"intent": "edu_recommend"}
+
+        # 온보딩 진행 중(step 1~8) 또는 공고 추천 직후 상태에서는 키워드 체크보다
+        # 먼저 resume_gen으로 라우팅 — 답변 텍스트에 "취업" 등 키워드가 섞여도 오분류 방지
+        if 0 < step < 9 or resume_status == "jobs_recommended":
+            return {"intent": "resume_gen"}
+
+    # 키워드 기반 라우팅 (활성 온보딩 상태가 아닐 때만 도달)
     if _is_education_guide(text):
         return {"intent": "edu_guide"}
 
@@ -99,20 +121,12 @@ async def analyze_intent(state: AgentState) -> Dict[str, Any]:
     if _contains_any(text, RESUME_WORDS):
         return {"intent": "resume_gen"}
 
-    try:
-        profile = get_user_profile(user_id)
-        if profile is not None:
-            resume_status = profile.get("resume_status", "none") or "none"
-            if resume_status.startswith("edu_") and not _contains_any(text, RESET_KEYWORDS):
-                return {"intent": "edu_recommend"}
-
-            step = profile.get("step", 0)
-            is_onboarding = 0 <= step < 9
-            is_resume_active = resume_status in ("generated", "reviewed", "editing", "done")
-            if (is_onboarding or is_resume_active) and not _contains_any(text, RESET_KEYWORDS):
-                return {"intent": "resume_gen"}
-    except Exception as exc:
-        print(f"[Intent Warning] profile check failed: {exc}")
+    # 후기 Smart Bypass: editing / done 등 나머지 활성 상태 처리
+    if profile is not None:
+        is_onboarding = 0 <= step < 9
+        is_resume_active = resume_status in ("generated", "reviewed", "editing", "done")
+        if is_onboarding or is_resume_active:
+            return {"intent": "resume_gen"}
 
     system_prompt = (
         "당신은 중장년층 구직자 지원 시스템의 의도 분석가입니다.\n"
