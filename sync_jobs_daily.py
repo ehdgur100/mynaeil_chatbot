@@ -74,6 +74,9 @@ def main() -> int:
             allow_failure=True,
         )
 
+        print("\n=== 지난 마감 직업 공고 삭제 ===")
+        run_command([PYTHON, "delete_expired_jobs.py"])
+
         if not args.skip_embeddings:
             print("\n=== 새 일자리 임베딩 생성 ===")
             run_command([PYTHON, "data_pipeline/embed_jobs.py"])
