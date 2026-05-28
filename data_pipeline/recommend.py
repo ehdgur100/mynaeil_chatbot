@@ -12,21 +12,42 @@ from database.vector_search import embeddings
 
 
 def _build_user_query(user: dict) -> str:
-    """사용자 프로필을 임베딩용 쿼리 텍스트로 변환합니다."""
-    parts = []
-    if user.get("desired_job"):
-        parts.append(f"희망직무: {user['desired_job']}")
-    if user.get("career"):
-        parts.append(f"경력: {user['career']}")
-    if user.get("skills"):
-        parts.append(f"자격증: {user['skills']}")
-    if user.get("location"):
-        parts.append(f"희망근무지역: {user['location']}")
-    if user.get("work_condition"):
-        parts.append(f"근무조건: {user['work_condition']}")
-    if user.get("strengths"):
-        parts.append(f"강점: {user['strengths']}")
-    return "\n".join(parts) if parts else "구직자"
+    """
+    사용자 프로필을 채용공고 형식의 텍스트로 변환합니다.
+    프로필 나열 형식("희망직무: 경비") 대신 공고 텍스트와 유사한 자연어 형식으로
+    작성해야 임베딩 공간에서 공고 벡터와 가까워져 유사도 정확도가 높아집니다.
+    """
+    desired_job = user.get("desired_job", "")
+    location = user.get("location", "")
+    career = user.get("career", "")
+    skills = user.get("skills", "")
+    work_condition = user.get("work_condition", "")
+    strengths = user.get("strengths", "")
+
+    lines = []
+
+    # 공고 제목 형식: "서울 강서구 경비 채용"
+    title_parts = [p for p in [location, desired_job] if p]
+    if title_parts:
+        lines.append(" ".join(title_parts) + " 채용")
+
+    # 경력 사항
+    if career:
+        lines.append(career)
+
+    # 자격증 (없음 응답은 제외)
+    if skills and skills not in ("없음", "없어요", "없습니다"):
+        lines.append(skills)
+
+    # 근무 조건
+    if work_condition:
+        lines.append(work_condition)
+
+    # 강점/특기
+    if strengths:
+        lines.append(strengths)
+
+    return "\n".join(lines) if lines else "구직자 채용"
 
 
 def _filter_by_location(jobs: list, user_location: str) -> list:
