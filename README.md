@@ -280,3 +280,6 @@ venv\Scripts\python.exe sync_jobs_daily.py --skip-embeddings
 ```powershell
 venv\Scripts\python.exe sync_50plus_education_daily.py --skip-embeddings
 ```
+
+
+[나의내일 AI 챗봇 프로젝트 최종본.pptx](https://github.com/user-attachments/files/28454951/AI.pptx)
