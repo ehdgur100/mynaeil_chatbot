@@ -1,11 +1,12 @@
 import sys
 import os
 import time
+from pathlib import Path
 
 # config와 database 모듈 경로 추가
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from database.connection import supabase
 from database.vector_search import embeddings

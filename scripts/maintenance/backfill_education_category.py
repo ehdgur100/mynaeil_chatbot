@@ -2,13 +2,15 @@ import argparse
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
 
-load_dotenv(override=True)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(REPO_ROOT / ".env", override=True)
 
 for proxy_env_name in (
     "HTTP_PROXY",

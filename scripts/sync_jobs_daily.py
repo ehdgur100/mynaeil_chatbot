@@ -3,9 +3,18 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from pathlib import Path
 
 
 PYTHON = sys.executable
+REPO_ROOT = Path(__file__).resolve().parents[1]
+WORKNET_CRAWLER = REPO_ROOT / "data_pipeline/jobs/worknet_crawler.py"
+SEOUL_JOBS_CRAWLER = REPO_ROOT / "data_pipeline/jobs/seoul_jobs_crawler.py"
+FIFTYPLUS_JOBS_CRAWLER = REPO_ROOT / "data_pipeline/jobs/fiftyplus_jobs_crawler.py"
+FIFTYPLUS_JOBS_LOADER = REPO_ROOT / "data_pipeline/jobs/fiftyplus_jobs_loader.py"
+JOB_EMBEDDER = REPO_ROOT / "data_pipeline/jobs/embed_jobs.py"
+EXPIRED_JOBS_CLEANUP = REPO_ROOT / "scripts/maintenance/delete_expired_jobs.py"
+FIFTYPLUS_JOBS_OUTPUT = REPO_ROOT / "data/50plus_private_applying"
 
 
 def run_command(command: list[str], allow_failure: bool = False) -> None:
@@ -35,7 +44,7 @@ def main() -> int:
         run_command(
             [
                 PYTHON,
-                "data_pipeline/crawler.py",
+                str(WORKNET_CRAWLER),
                 "--target-count",
                 str(args.worknet_target),
             ]
@@ -45,7 +54,7 @@ def main() -> int:
         run_command(
             [
                 PYTHON,
-                "data_pipeline/seoul_jobs_crawler.py",
+                str(SEOUL_JOBS_CRAWLER),
                 "--target-count",
                 str(args.seoul_target),
             ]
@@ -55,11 +64,11 @@ def main() -> int:
         run_command(
             [
                 PYTHON,
-                "crawl_50plus_jobs.py",
+                str(FIFTYPLUS_JOBS_CRAWLER),
                 "--biz-se",
                 "IN49008",
                 "--output-dir",
-                "data/50plus_private_applying",
+                str(FIFTYPLUS_JOBS_OUTPUT),
             ]
         )
 
@@ -67,19 +76,19 @@ def main() -> int:
         run_command(
             [
                 PYTHON,
-                "load_50plus_jobs_to_supabase.py",
+                str(FIFTYPLUS_JOBS_LOADER),
                 "--json-path",
-                "data/50plus_private_applying/50plus_jobs_applying.json",
+                str(FIFTYPLUS_JOBS_OUTPUT / "50plus_jobs_applying.json"),
             ],
             allow_failure=True,
         )
 
         print("\n=== 지난 마감 직업 공고 삭제 ===")
-        run_command([PYTHON, "delete_expired_jobs.py"])
+        run_command([PYTHON, str(EXPIRED_JOBS_CLEANUP)])
 
         if not args.skip_embeddings:
             print("\n=== 새 일자리 임베딩 생성 ===")
-            run_command([PYTHON, "data_pipeline/embed_jobs.py"])
+            run_command([PYTHON, str(JOB_EMBEDDER)])
 
         print("\nJobs sync completed.")
         return 0

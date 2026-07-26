@@ -12,7 +12,8 @@ from postgrest.exceptions import APIError
 from supabase import Client, create_client
 
 
-load_dotenv(override=True)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(REPO_ROOT / ".env", override=True)
 
 for proxy_env_name in (
     "HTTP_PROXY",
@@ -31,7 +32,7 @@ EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
 EMBEDDING_DIMENSIONS = int(os.environ.get("EMBEDDING_DIMENSIONS", "1536"))
 
 TABLE_NAME = "education"
-DEFAULT_JSON_PATH = Path("data/50plus_education_applying/50plus_education_applying.json")
+DEFAULT_JSON_PATH = REPO_ROOT / "data/50plus_education_applying/50plus_education_applying.json"
 
 
 def clean_value(value: Any) -> Any:

@@ -8,12 +8,12 @@ if hasattr(sys.stdout, 'reconfigure'):
 import xml.etree.ElementTree as ET
 import requests
 from datetime import datetime
+from pathlib import Path
 
 # 💡 하위 폴더에서 상위 폴더의 모듈을 가져오기 위한 경로 설정
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 # 🌟 [수정] 파일 전체를 import 합니다. (클래스가 없기 때문)
 import config

@@ -106,23 +106,19 @@ ngrok 주소는 로컬 FastAPI 서버가 켜져 있을 때만 정상 동작합�
 
 ## 자동 갱신
 
-Windows 작업 스케줄러에 등록된 자동 실행 작업입니다.
+자동 크롤링은 현재 비활성화 상태입니다. Windows 작업 스케줄러의
+`Mynaeil50plusEducationSync`, `MynaeilJobsSync` 작업은 유지하되 실행하지 않습니다.
 
-- `Mynaeil50plusEducationSync`
-  - 매일 09:00 실행
-  - 실행 파일: `sync_50plus_education_daily.bat`
-  - 처리 내용: 교육 데이터 수집, Supabase upsert, 임베딩 생성, 지난 마감 교육 삭제
+다시 활성화할 때 사용하는 실행 파일은 다음과 같습니다.
 
-- `MynaeilJobsSync`
-  - 매일 09:00 실행
-  - 실행 파일: `sync_jobs_daily.bat`
-  - 처리 내용: 일자리 데이터 수집, Supabase upsert, 지난 마감 일자리 삭제, 임베딩 생성
+- `scripts/sync_education_daily.bat`: 교육 수집, 업로드, 임베딩, 마감 데이터 삭제
+- `scripts/sync_jobs_daily.bat`: 일자리 수집, 업로드, 임베딩, 마감 데이터 삭제
 
 수동 실행:
 
 ```powershell
-.\sync_50plus_education_daily.bat
-.\sync_jobs_daily.bat
+ .\scripts\sync_education_daily.bat
+ .\scripts\sync_jobs_daily.bat
 ```
 
 ## 실행 방법
@@ -160,34 +156,20 @@ PUBLIC_BASE_URL=https://aviation-scroll-jovial.ngrok-free.dev
 
 ```text
 mynaeil_chatbot/
-├─ main.py                         # FastAPI 서버, 카카오 스킬 API, jobs3 상세 페이지
-├─ graph.py                        # LangGraph 노드 연결
-├─ state.py                        # LangGraph 상태 정의
-├─ config.py                       # .env 로드와 API 설정
-├─ ssl_patch.py                    # 외부 API 호출 시 SSL 인증서 오류(CERTIFICATE_VERIFY_FAILED) 해결 패치
-├─ requirements.txt                # Python 의존성
-├─ README.md                       # 프로젝트 설명 문서
-├─ sync_jobs_daily.py              # 일자리 일일 동기화 실행 스크립트
-├─ sync_jobs_daily.bat             # 작업 스케줄러용 일자리 실행 파일
-├─ sync_50plus_education_daily.py  # 교육 일일 동기화 실행 스크립트
-├─ sync_50plus_education_daily.bat # 작업 스케줄러용 교육 실행 파일
-├─ delete_expired_jobs.py          # 지난 마감 일자리 삭제
-├─ delete_expired_education.py     # 지난 마감 교육 삭제
-├─ backfill_education_category.py  # 기존 교육 category/recruitment_status 보정
-├─ backfill_jobs3_details.py       # 서울시 일자리 상세 내용과 내부 링크 보정
-├─ crawl_50plus_jobs.py            # 서울시50플러스 일자리 수집
-├─ load_50plus_jobs_to_supabase.py # 서울시50플러스 일자리 Supabase 업로드
-├─ crawl_50plus_education.py       # 취업훈련 수집
-├─ crawl_50plus_ai_digital.py      # AI디지털교육 수집
-├─ crawl_50plus_center_education.py # 50플러스센터교육 수집
-├─ load_50plus_education_to_supabase.py # 교육 Supabase 업로드 및 임베딩
-├─ test.py                         # 로컬 테스트용 파일
-├─ nodes/                          # 챗봇 대화 노드
-├─ database/                       # Supabase 연결, DB 작업, 벡터 검색
-├─ data_pipeline/                  # 일자리 크롤링, 임베딩, 추천 파이프라인
-├─ sql/                            # Supabase 테이블과 검색 함수 SQL
-├─ data/                           # 크롤링 결과 JSON/CSV 저장 폴더
-└─ ngrok.exe                       # 로컬 서버 외부 공개용 ngrok 실행 파일
+├─ main.py, graph.py, state.py, config.py  # 서버, 대화 그래프, 상태, 환경 설정
+├─ nodes/                                  # 챗봇 대화 기능
+├─ database/                               # Supabase 연결·조회
+├─ data_pipeline/
+│  ├─ jobs/                                # 일자리 수집·업로드·임베딩·추천
+│  └─ education/                           # 교육 수집·업로드
+├─ scripts/
+│  ├─ sync_jobs_daily.py/.bat              # 일자리 일괄 실행
+│  ├─ sync_education_daily.py/.bat         # 교육 일괄 실행
+│  └─ maintenance/                         # 마감 삭제·기존 데이터 보정
+├─ sql/                                    # Supabase SQL
+├─ data/                                   # 최신 크롤링 CSV·JSON
+├─ tests/                                  # 수동 점검과 구조 테스트
+└─ tools/ngrok/                            # ngrok 실행 파일
 ```
 
 ## 주요 모듈
@@ -223,25 +205,14 @@ mynaeil_chatbot/
 
 ### 일자리 파이프라인
 
-- `data_pipeline/crawler.py`: Worknet 기반 일자리 데이터를 수집합니다.
-- `data_pipeline/seoul_jobs_crawler.py`: 서울시 일자리 API 데이터를 수집하고 내부 상세 링크를 생성합니다.
-- `data_pipeline/embed_jobs.py`: `jobs`, `jobs3`, `job_seoul_50` 임베딩을 생성합니다.
-- `data_pipeline/recommend.py`: 일자리 추천 결과를 만들고 카카오 응답 형태로 변환합니다.
-- `data_pipeline/work24_api.py`: 고용24 API 연동용 모듈입니다.
-- `crawl_50plus_jobs.py`: 서울시50플러스 일자리 데이터를 수집합니다.
-- `load_50plus_jobs_to_supabase.py`: 서울시50플러스 일자리 데이터를 `job_seoul_50`에 upsert합니다.
-- `delete_expired_jobs.py`: 지난 마감 일자리 공고를 삭제합니다.
-- `sync_jobs_daily.py`: Worknet, 서울시, 50플러스 일자리 수집과 업로드, 마감 삭제, 임베딩 생성을 한 번에 실행합니다.
+- `data_pipeline/jobs/`: Worknet·서울시·50플러스 일자리 수집, `jobs`·`jobs3`·`job_seoul_50` 업로드, 임베딩과 추천 기능입니다.
+- `scripts/sync_jobs_daily.py`: 일자리 전체 수집과 정리 작업의 실행 진입점입니다.
 
 ### 교육 파이프라인
 
-- `crawl_50plus_education.py`: 취업훈련 모집중 데이터를 수집합니다.
-- `crawl_50plus_ai_digital.py`: AI디지털교육 모집중/모집예정 데이터를 수집합니다.
-- `crawl_50plus_center_education.py`: 50플러스센터교육 모집중/모집예정 데이터를 수집합니다.
-- `load_50plus_education_to_supabase.py`: 교육 데이터를 `education` 테이블에 upsert하고 임베딩을 생성합니다.
-- `backfill_education_category.py`: 기존 교육 데이터의 `category`, `recruitment_status`를 보정합니다.
-- `delete_expired_education.py`: 지난 마감 교육 데이터를 삭제합니다.
-- `sync_50plus_education_daily.py`: 교육 수집, 업로드, 임베딩, 마감 삭제를 한 번에 실행합니다.
+- `data_pipeline/education/`: 취업훈련, AI디지털교육, 50플러스센터교육 수집과 `education` 테이블 업로드 기능입니다.
+- `scripts/sync_education_daily.py`: 교육 전체 수집과 정리 작업의 실행 진입점입니다.
+- `scripts/maintenance/`: 마감 공고 삭제와 기존 데이터 보정 작업입니다.
 
 ### SQL과 데이터
 
@@ -254,6 +225,7 @@ mynaeil_chatbot/
 - `data/50plus_center_education_joining/`: 50플러스센터교육 모집중 수집 결과입니다.
 - `data/50plus_center_education_pending/`: 50플러스센터교육 모집예정 수집 결과입니다.
 - `data/50plus_private_applying/`: 서울시50플러스 일자리 수집 결과입니다.
+- `backups/`, `staging/`: 로컬 백업·검증 폴더이며 Git 커밋에서 제외됩니다.
 
 ## 확인 명령
 
@@ -272,13 +244,13 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8001/api/chat -ContentType 
 일자리 자동 동기화 테스트:
 
 ```powershell
-venv\Scripts\python.exe sync_jobs_daily.py --skip-embeddings
+venv\Scripts\python.exe scripts\sync_jobs_daily.py --skip-embeddings
 ```
 
 교육 자동 동기화 테스트:
 
 ```powershell
-venv\Scripts\python.exe sync_50plus_education_daily.py --skip-embeddings
+venv\Scripts\python.exe scripts\sync_education_daily.py --skip-embeddings
 ```
 
 

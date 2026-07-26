@@ -5,13 +5,14 @@ import os
 import re
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import requests
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.append(current_dir)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import config
 from database.connection import supabase

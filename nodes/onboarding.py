@@ -435,7 +435,7 @@ async def handle_onboarding(user_id: str, user_input: str) -> dict:
             _save_answer(user_id, field, stripped, 5)
             _update_resume_status(user_id, "jobs_recommended")
             
-            from data_pipeline import recommend
+            from data_pipeline.jobs import recommend
             try:
                 recommended = await recommend.recommend_jobs_for_user(user_id, limit=3)
             except Exception as e:

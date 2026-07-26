@@ -165,7 +165,7 @@ async def recommend_endpoint(request: Request):
         user_id = user_request.get("user", {}).get("id", "unknown_user")
 
         print(f"[recommend] user_id={user_id}")
-        from data_pipeline import recommend
+        from data_pipeline.jobs import recommend
 
         jobs = await recommend.recommend_jobs_for_user(user_id, limit=5)
         return recommend.build_kakao_carousel_response(jobs)

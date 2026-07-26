@@ -11,7 +11,8 @@ from postgrest.exceptions import APIError
 from supabase import Client, create_client
 
 
-load_dotenv(override=True)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(REPO_ROOT / ".env", override=True)
 
 for proxy_env_name in (
     "HTTP_PROXY",
@@ -26,7 +27,7 @@ for proxy_env_name in (
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 TABLE_NAME = "job_seoul_50"
-DEFAULT_JSON_PATH = Path("data/50plus_private_applying/50plus_jobs_applying.json")
+DEFAULT_JSON_PATH = REPO_ROOT / "data/50plus_private_applying/50plus_jobs_applying.json"
 
 
 def clean_value(value: Any) -> Any:

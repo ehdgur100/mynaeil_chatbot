@@ -7,65 +7,72 @@ from pathlib import Path
 
 
 PYTHON = sys.executable
+REPO_ROOT = Path(__file__).resolve().parents[1]
+JOB_TRAINING_CRAWLER = REPO_ROOT / "data_pipeline/education/job_training_crawler.py"
+AI_DIGITAL_CRAWLER = REPO_ROOT / "data_pipeline/education/ai_digital_crawler.py"
+CENTER_EDUCATION_CRAWLER = REPO_ROOT / "data_pipeline/education/center_education_crawler.py"
+EDUCATION_LOADER = REPO_ROOT / "data_pipeline/education/education_loader.py"
+EXPIRED_EDUCATION_CLEANUP = REPO_ROOT / "scripts/maintenance/delete_expired_education.py"
+DATA_DIR = REPO_ROOT / "data"
 
 JOBS = [
     {
         "name": "취업훈련 모집중",
         "crawl": [
             PYTHON,
-            "crawl_50plus_education.py",
+            str(JOB_TRAINING_CRAWLER),
             "--output-dir",
-            "data/50plus_education_applying",
+            str(DATA_DIR / "50plus_education_applying"),
         ],
-        "json": Path("data/50plus_education_applying/50plus_education_applying.json"),
+        "json": DATA_DIR / "50plus_education_applying/50plus_education_applying.json",
     },
     {
         "name": "AI디지털교육 모집중",
         "crawl": [
             PYTHON,
-            "crawl_50plus_ai_digital.py",
+            str(AI_DIGITAL_CRAWLER),
             "--state",
             "JOIN",
             "--output-dir",
-            "data/50plus_ai_digital_joining",
+            str(DATA_DIR / "50plus_ai_digital_joining"),
         ],
-        "json": Path("data/50plus_ai_digital_joining/50plus_ai_digital_joining.json"),
+        "json": DATA_DIR / "50plus_ai_digital_joining/50plus_ai_digital_joining.json",
     },
     {
         "name": "AI디지털교육 모집예정",
         "crawl": [
             PYTHON,
-            "crawl_50plus_ai_digital.py",
+            str(AI_DIGITAL_CRAWLER),
             "--state",
             "PEND",
             "--output-dir",
-            "data/50plus_ai_digital_pending",
+            str(DATA_DIR / "50plus_ai_digital_pending"),
         ],
-        "json": Path("data/50plus_ai_digital_pending/50plus_ai_digital_pending.json"),
+        "json": DATA_DIR / "50plus_ai_digital_pending/50plus_ai_digital_pending.json",
     },
     {
         "name": "50플러스센터교육 모집중",
         "crawl": [
             PYTHON,
-            "crawl_50plus_center_education.py",
+            str(CENTER_EDUCATION_CRAWLER),
             "--state",
             "JOIN",
             "--output-dir",
-            "data/50plus_center_education_joining",
+            str(DATA_DIR / "50plus_center_education_joining"),
         ],
-        "json": Path("data/50plus_center_education_joining/50plus_center_education_joining.json"),
+        "json": DATA_DIR / "50plus_center_education_joining/50plus_center_education_joining.json",
     },
     {
         "name": "50플러스센터교육 모집예정",
         "crawl": [
             PYTHON,
-            "crawl_50plus_center_education.py",
+            str(CENTER_EDUCATION_CRAWLER),
             "--state",
             "PEND",
             "--output-dir",
-            "data/50plus_center_education_pending",
+            str(DATA_DIR / "50plus_center_education_pending"),
         ],
-        "json": Path("data/50plus_center_education_pending/50plus_center_education_pending.json"),
+        "json": DATA_DIR / "50plus_center_education_pending/50plus_center_education_pending.json",
     },
 ]
 
@@ -103,7 +110,7 @@ def main() -> int:
 
             load_command = [
                 PYTHON,
-                "load_50plus_education_to_supabase.py",
+                str(EDUCATION_LOADER),
                 "--json-path",
                 str(json_path),
                 "--batch-size",
@@ -115,7 +122,7 @@ def main() -> int:
             run_command(load_command)
 
         print("\n=== 지난 마감일 교육 삭제 ===")
-        run_command([PYTHON, "delete_expired_education.py"])
+        run_command([PYTHON, str(EXPIRED_EDUCATION_CLEANUP)])
 
         print("\nEducation sync completed.")
         return 0

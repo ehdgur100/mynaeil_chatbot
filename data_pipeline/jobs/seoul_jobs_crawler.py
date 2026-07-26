@@ -4,11 +4,12 @@ import requests
 import json
 import argparse
 from datetime import datetime
+from pathlib import Path
 
 # config와 database 모듈의 경로를 찾아서 sys.path에 추가
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import config
 from database.connection import supabase
