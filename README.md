@@ -106,13 +106,22 @@ ngrok 주소는 로컬 FastAPI 서버가 켜져 있을 때만 정상 동작합�
 
 ## 자동 갱신
 
-자동 크롤링은 현재 비활성화 상태입니다. Windows 작업 스케줄러의
-`Mynaeil50plusEducationSync`, `MynaeilJobsSync` 작업은 유지하되 실행하지 않습니다.
+Windows 작업 스케줄러에 등록된 자동 실행 작업입니다. 현재 두 작업은 `Disabled` 상태입니다.
+`Disabled` 상태에서는 매일 09:00이 되어도 크롤링이 자동 실행되지 않으며, 수동 실행 명령을 사용할 때만 동작합니다.
 
-다시 활성화할 때 사용하는 실행 파일은 다음과 같습니다.
+### Mynaeil50plusEducationSync
 
-- `scripts/sync_education_daily.bat`: 교육 수집, 업로드, 임베딩, 마감 데이터 삭제
-- `scripts/sync_jobs_daily.bat`: 일자리 수집, 업로드, 임베딩, 마감 데이터 삭제
+- 매일 09:00 실행
+- 실행 파일: `scripts/sync_education_daily.bat`
+- 처리 내용: 교육 데이터 수집, Supabase upsert, 임베딩 생성, 지난 마감 교육 삭제
+
+### MynaeilJobsSync
+
+- 매일 09:00 실행
+- 실행 파일: `scripts/sync_jobs_daily.bat`
+- 처리 내용: 일자리 데이터 수집, Supabase upsert, 임베딩 생성, 지난 마감 일자리 삭제
+
+작업 스케줄러에서 두 작업을 `사용`으로 바꾸면 다음 실행 시각부터 자동으로 동작합니다.
 
 수동 실행:
 
