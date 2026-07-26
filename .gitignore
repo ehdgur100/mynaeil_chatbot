@@ -1,4 +1,8 @@
 # --- Python Standard ---
+# --- Local Crawl Artifacts ---
+backups/
+staging/
+
 __pycache__/
 *.py[cod]
 *$py.class
